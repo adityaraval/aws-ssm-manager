@@ -12,6 +12,14 @@ let pendingDeleteConnection = null; // Track connection pending deletion
 let terminal = null;
 let fitAddon = null;
 
+// HTML escape function to prevent XSS attacks
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // Session timer
 let sessionStartTime = null;
 let sessionDuration = 10 * 60 * 1000; // 10 minutes default
@@ -308,21 +316,24 @@ function renderGroupsWithConnections() {
     const isCollapsed = collapsedGroups.has(group.id);
     const count = connections.length;
 
+    // Validate color is a safe CSS color value (hex format from radio buttons)
+    const safeColor = /^#[0-9a-fA-F]{6}$/.test(group.color) ? group.color : '#888888';
+
     html += `
-      <div class="group-section ${isCollapsed ? 'collapsed' : ''}" data-group-id="${group.id}">
-        <div class="group-header" data-group-id="${group.id}">
+      <div class="group-section ${isCollapsed ? 'collapsed' : ''}" data-group-id="${escapeHtml(group.id)}">
+        <div class="group-header" data-group-id="${escapeHtml(group.id)}">
           <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
-          <span class="group-color" style="background: ${group.color}"></span>
-          <span class="group-name">${group.name}</span>
+          <span class="group-color" style="background: ${safeColor}"></span>
+          <span class="group-name">${escapeHtml(group.name)}</span>
           <span class="group-count">${count}</span>
           <div class="group-actions">
-            <button class="group-edit" data-id="${group.id}" title="Edit">✎</button>
-            <button class="group-delete" data-id="${group.id}" title="Delete">×</button>
+            <button class="group-edit" data-id="${escapeHtml(group.id)}" title="Edit">✎</button>
+            <button class="group-delete" data-id="${escapeHtml(group.id)}" title="Delete">×</button>
           </div>
         </div>
-        <div class="group-connections" data-group-id="${group.id}">
+        <div class="group-connections" data-group-id="${escapeHtml(group.id)}">
           ${connections.map(conn => renderConnectionItem(conn, group)).join('')}
         </div>
       </div>
@@ -522,8 +533,13 @@ function deleteConnection(name) {
 }
 
 function renderConnectionItem(conn, group) {
-  const borderColor = group ? group.color : 'transparent';
-  const iconSrc = serviceConfig[conn.service]?.icon || 'images/AmazonOpenSearch.svg';
+  // Validate color is a safe CSS color value
+  const borderColor = group && /^#[0-9a-fA-F]{6}$/.test(group.color) ? group.color : 'transparent';
+  // Validate icon path - only allow known service icons
+  const validServices = ['opensearch', 'aurora', 'elasticache', 'rabbitmq'];
+  const iconSrc = validServices.includes(conn.service) && serviceConfig[conn.service]?.icon
+    ? serviceConfig[conn.service].icon
+    : 'images/AmazonOpenSearch.svg';
   const isActive = isSessionActive && activeConnectionName === conn.name;
   const isSelected = editingConnectionName === conn.name;
   const activeClass = isActive ? 'active-session' : '';
@@ -531,13 +547,13 @@ function renderConnectionItem(conn, group) {
   const activeDot = isActive ? '<span class="connection-active-dot" title="Session active"></span>' : '';
 
   return `
-    <div class="connection-item ${activeClass} ${selectedClass}" data-name="${conn.name}" draggable="true" style="border-left-color: ${borderColor}">
-      <img src="${iconSrc}" alt="" class="connection-icon-img">
+    <div class="connection-item ${activeClass} ${selectedClass}" data-name="${escapeHtml(conn.name)}" draggable="true" style="border-left-color: ${borderColor}">
+      <img src="${escapeHtml(iconSrc)}" alt="" class="connection-icon-img">
       <div class="connection-info">
-        <div class="connection-name">${activeDot}${conn.name}</div>
-        <div class="connection-meta">${conn.profile} · ${conn.region}</div>
+        <div class="connection-name">${activeDot}${escapeHtml(conn.name)}</div>
+        <div class="connection-meta">${escapeHtml(conn.profile)} · ${escapeHtml(conn.region)}</div>
       </div>
-      <button class="connection-delete" data-name="${conn.name}" title="Delete">×</button>
+      <button class="connection-delete" data-name="${escapeHtml(conn.name)}" title="Delete">×</button>
     </div>
   `;
 }
@@ -594,7 +610,7 @@ function updateFormHeader(connectionName = null) {
 
   if (connectionName) {
     headerTitle.textContent = 'Edit Connection';
-    headerDesc.innerHTML = `Editing: <strong>${connectionName}</strong>`;
+    headerDesc.innerHTML = `Editing: <strong>${escapeHtml(connectionName)}</strong>`;
   } else {
     headerTitle.textContent = 'New Connection';
     headerDesc.textContent = 'Configure your AWS SSM port forwarding session';
@@ -790,11 +806,35 @@ function getConnectionConfig() {
   return { profile, region, target, host, name, groupId };
 }
 
+// Input validation patterns
+const validationPatterns = {
+  // AWS instance ID: i- followed by 8 or 17 hex characters
+  instanceId: /^i-[0-9a-f]{8}([0-9a-f]{9})?$/,
+  // AWS region: e.g., us-east-1, eu-west-2, ap-southeast-1
+  region: /^[a-z]{2}-[a-z]+-\d$/,
+  // Port number validation
+  port: (val) => {
+    const num = parseInt(val, 10);
+    return !isNaN(num) && num >= 1 && num <= 65535;
+  },
+  // AWS profile name: alphanumeric, dots, hyphens, underscores
+  profile: /^[a-zA-Z0-9._-]+$/,
+  // Hostname: valid DNS name or IP address
+  hostname: /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/
+};
+
 function validateForm() {
   const { profile, region, target, host } = getConnectionConfig();
+  const localPort = document.getElementById('localPort').value;
+  const remotePort = document.getElementById('remotePort').value;
 
   if (!profile) {
     showToast('Please select an AWS profile', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.profile.test(profile)) {
+    showToast('Invalid AWS profile name format', 'error');
     return false;
   }
 
@@ -805,6 +845,31 @@ function validateForm() {
 
   if (!target || !host || !region) {
     showToast('Please fill all required fields', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.instanceId.test(target)) {
+    showToast('Invalid instance ID format (expected: i-xxxxxxxx or i-xxxxxxxxxxxxxxxxx)', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.region.test(region)) {
+    showToast('Invalid AWS region format (expected: xx-xxxx-N, e.g., us-east-1)', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.hostname.test(host)) {
+    showToast('Invalid hostname format', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.port(localPort)) {
+    showToast('Invalid local port (must be 1-65535)', 'error');
+    return false;
+  }
+
+  if (!validationPatterns.port(remotePort)) {
+    showToast('Invalid remote port (must be 1-65535)', 'error');
     return false;
   }
 
@@ -1144,14 +1209,14 @@ async function importConnections() {
     return;
   }
 
-  const { data } = result;
+  const { data, warnings } = result;
 
   // Show import confirmation modal
   const importCount = data.connections?.length || 0;
   const groupCount = data.groups?.length || 0;
 
   if (importCount === 0) {
-    showToast('No connections found in file', 'error');
+    showToast('No valid connections found in file', 'error');
     return;
   }
 
@@ -1181,5 +1246,10 @@ async function importConnections() {
   renderGroupsWithConnections();
   updateGroupDropdown();
 
-  showToast(`Imported ${importCount} connections and ${groupCount} groups`, 'success');
+  // Show success message with any warnings
+  if (warnings) {
+    showToast(`Imported ${importCount} connections. ${warnings}`, 'info');
+  } else {
+    showToast(`Imported ${importCount} connections and ${groupCount} groups`, 'success');
+  }
 }

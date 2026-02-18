@@ -8,6 +8,32 @@ const { spawn } = require('child_process');
 // Default session timeout: 10 minutes
 const DEFAULT_SESSION_TIMEOUT = 10 * 60 * 1000;
 
+// Input validation functions
+const validators = {
+  // AWS instance ID: i- followed by 8 or 17 hex characters
+  instanceId: (id) => /^i-[0-9a-f]{8}([0-9a-f]{9})?$/.test(id),
+
+  // AWS region: e.g., us-east-1, eu-west-2, ap-southeast-1
+  region: (region) => /^[a-z]{2}-[a-z]+-\d$/.test(region),
+
+  // Port number: 1-65535
+  port: (port) => {
+    const num = parseInt(port, 10);
+    return !isNaN(num) && num >= 1 && num <= 65535;
+  },
+
+  // AWS profile name: alphanumeric, dots, hyphens, underscores
+  profile: (profile) => /^[a-zA-Z0-9._-]+$/.test(profile) && profile.length <= 64,
+
+  // Hostname: valid DNS name or IP address
+  hostname: (host) => {
+    // Allow valid hostnames and IP addresses
+    const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    return hostnameRegex.test(host) || ipRegex.test(host);
+  }
+};
+
 class SSMSession {
   constructor(config, onOutput, onStatus) {
     this.config = config;
@@ -28,6 +54,36 @@ class SSMSession {
   async start() {
     try {
       this.onStatus('connecting');
+
+      // Validate all inputs before proceeding
+      const validationErrors = [];
+
+      if (!validators.instanceId(this.config.target)) {
+        validationErrors.push(`Invalid instance ID format: ${this.config.target}`);
+      }
+      if (!validators.region(this.config.region)) {
+        validationErrors.push(`Invalid region format: ${this.config.region}`);
+      }
+      if (!validators.port(this.config.portNumber)) {
+        validationErrors.push(`Invalid remote port: ${this.config.portNumber}`);
+      }
+      if (!validators.port(this.config.localPortNumber)) {
+        validationErrors.push(`Invalid local port: ${this.config.localPortNumber}`);
+      }
+      if (!validators.profile(this.config.profile)) {
+        validationErrors.push(`Invalid profile name: ${this.config.profile}`);
+      }
+      if (!validators.hostname(this.config.host)) {
+        validationErrors.push(`Invalid hostname: ${this.config.host}`);
+      }
+
+      if (validationErrors.length > 0) {
+        const errorMsg = validationErrors.join('; ');
+        this.log(`Validation failed: ${errorMsg}`, 'error');
+        this.onStatus('error');
+        return { success: false, error: errorMsg };
+      }
+
       this.log('Starting AWS SSM port forwarding session...');
       this.log(`Profile: ${this.config.profile}`);
       this.log(`Region: ${this.config.region}`);
@@ -49,13 +105,33 @@ class SSMSession {
       this.log('Executing: aws ' + args.join(' '));
 
       // Spawn AWS CLI process with its own process group (for clean termination)
+      // Only pass necessary environment variables to avoid leaking sensitive data
+      const safeEnv = {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        USER: process.env.USER,
+        USERPROFILE: process.env.USERPROFILE, // Windows
+        HOMEDRIVE: process.env.HOMEDRIVE,     // Windows
+        HOMEPATH: process.env.HOMEPATH,       // Windows
+        SystemRoot: process.env.SystemRoot,   // Windows
+        TEMP: process.env.TEMP,
+        TMP: process.env.TMP,
+        AWS_PROFILE: this.config.profile,
+        AWS_REGION: this.config.region,
+        // Required for AWS CLI plugin
+        AWS_SSM_PLUGIN_PATH: process.env.AWS_SSM_PLUGIN_PATH,
+      };
+
+      // Remove undefined values
+      Object.keys(safeEnv).forEach(key => {
+        if (safeEnv[key] === undefined) {
+          delete safeEnv[key];
+        }
+      });
+
       this.process = spawn('aws', args, {
         detached: process.platform !== 'win32', // Create new process group (Unix only)
-        env: {
-          ...process.env,
-          AWS_PROFILE: this.config.profile,
-          AWS_REGION: this.config.region
-        }
+        env: safeEnv
       });
 
       // Handle stdout
@@ -179,10 +255,15 @@ class SSMSession {
       try {
         // Kill the entire process tree (AWS CLI spawns child processes)
         if (process.platform === 'win32') {
-          // Windows: use taskkill
-          const { execSync } = require('child_process');
+          // Windows: use taskkill with spawnSync to avoid command injection
+          const { spawnSync } = require('child_process');
           try {
-            execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' });
+            // Validate PID is a positive integer to prevent injection
+            const safePid = parseInt(pid, 10);
+            if (!Number.isInteger(safePid) || safePid <= 0) {
+              throw new Error('Invalid PID');
+            }
+            spawnSync('taskkill', ['/pid', String(safePid), '/T', '/F'], { stdio: 'ignore' });
           } catch (e) {
             // Process might already be dead
           }
