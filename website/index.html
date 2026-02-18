@@ -62,6 +62,7 @@
       </a>
       <div class="flex items-center gap-6">
         <a href="#features" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Features</a>
+        <a href="#prerequisites" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Prerequisites</a>
         <a href="#download" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Download</a>
         <a href="https://github.com" target="_blank" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">GitHub</a>
       </div>
@@ -217,8 +218,123 @@
     </div>
   </section>
 
+  <!-- Prerequisites Section -->
+  <section id="prerequisites" class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">Prerequisites</h2>
+        <p class="text-lg text-gray-500">Before getting started, make sure you have these tools installed.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- AWS CLI -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-orange-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-1">AWS CLI v2</h3>
+              <p class="text-sm text-gray-500 mb-3">Required for authentication and session management.</p>
+              <div class="space-y-2">
+                <code class="block text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded-lg font-mono">brew install awscli</code>
+                <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" target="_blank" class="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
+                  Installation guide
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Session Manager Plugin -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-1">Session Manager Plugin</h3>
+              <p class="text-sm text-gray-500 mb-3">Required to establish SSM sessions.</p>
+              <div class="space-y-2">
+                <code class="block text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded-lg font-mono">brew install --cask session-manager-plugin</code>
+                <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html" target="_blank" class="inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700 font-medium">
+                  Installation guide
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AWS Credentials -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-1">AWS Credentials</h3>
+              <p class="text-sm text-gray-500 mb-3">Configure named profiles with your AWS credentials.</p>
+              <div class="space-y-2">
+                <code class="block text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded-lg font-mono">aws configure --profile my-profile</code>
+                <p class="text-xs text-gray-400">Supports IAM users, roles, and SSO authentication.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- IAM Permissions -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 mb-1">IAM Permissions</h3>
+              <p class="text-sm text-gray-500 mb-3">Your IAM user/role needs SSM permissions.</p>
+              <div class="space-y-2">
+                <div class="text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded-lg font-mono">
+                  ssm:StartSession<br>
+                  ssm:TerminateSession
+                </div>
+                <p class="text-xs text-gray-400">Plus EC2 describe permissions for instance lookup.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EC2 Instance Requirements -->
+      <div class="mt-8 bg-amber-50 border border-amber-200 rounded-xl p-6">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">EC2 Instance Requirements</h3>
+            <ul class="text-sm text-gray-600 space-y-1">
+              <li class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                SSM Agent installed and running (pre-installed on Amazon Linux 2, Ubuntu 20.04+)
+              </li>
+              <li class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                IAM instance profile with <code class="text-xs bg-amber-100 px-1.5 py-0.5 rounded">AmazonSSMManagedInstanceCore</code> policy
+              </li>
+              <li class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Outbound internet access or VPC endpoints for SSM
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- How it Works -->
-  <section class="py-20 px-6">
+  <section class="py-20 px-6 bg-gray-50">
     <div class="max-w-4xl mx-auto">
       <div class="text-center mb-16">
         <h2 class="text-3xl font-bold text-gray-900 mb-4">How it works</h2>
@@ -290,7 +406,7 @@
 
       <p class="text-sm text-gray-500 mt-8">
         Requires AWS CLI and Session Manager plugin installed.
-        <a href="#" class="text-gray-400 hover:text-white underline">View setup guide →</a>
+        <a href="#prerequisites" class="text-gray-400 hover:text-white underline">View prerequisites →</a>
       </p>
     </div>
   </section>
