@@ -50,7 +50,7 @@ This document outlines currently implemented features and potential improvements
 - [x] **Copy URL** - One-click copy service URL to clipboard
 - [x] **Session Info Display** - Shows local port and session ID
 
-### Security (Recently Added)
+### Security
 - [x] **Input Validation** - Validates instance IDs, regions, ports, profiles, hostnames
 - [x] **XSS Prevention** - HTML escaping for all user-controlled content
 - [x] **Command Injection Protection** - Safe process spawning without shell interpolation
