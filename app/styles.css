@@ -96,6 +96,42 @@ body {
   color: var(--text-muted);
 }
 
+/* Mode Toggle - Below Logo */
+.mode-toggle {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+  background: var(--border-color);
+}
+
+.mode-btn.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 /* Sidebar Toolbar */
 .sidebar-toolbar {
   display: flex;
@@ -109,24 +145,6 @@ body {
   margin-bottom: 0;
 }
 
-.btn-add-connection {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.btn-add-connection:hover {
-  background: var(--accent-hover);
-}
 
 /* Sidebar Content */
 .sidebar-content {
@@ -499,90 +517,78 @@ body {
   gap: 12px;
 }
 
-/* Import/Export Actions */
-.import-export-actions {
+/* Footer Actions - TablePlus Style */
+.footer-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.btn-import-export {
-  flex: 1;
+.footer-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.footer-action-btn:hover {
+  background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--border-color) 100%);
+  border-color: var(--text-muted);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.footer-action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.footer-action-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
+  width: 22px;
+  height: 22px;
   color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-import-export:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
-}
-
-.btn-import-export svg {
   flex-shrink: 0;
 }
 
-/* Theme Toggle */
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.theme-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.theme-toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 11px;
+.footer-action-btn:hover .footer-action-icon {
   color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.15s;
 }
 
-.theme-toggle-btn:hover {
-  border-color: var(--accent);
+.footer-action-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.theme-toggle-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+/* Primary action button (Create connection) */
+.footer-action-primary {
+  background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  border-color: var(--border-color);
 }
 
-.theme-toggle-icon {
-  font-size: 14px;
+.footer-action-primary .footer-action-icon {
+  color: var(--accent);
 }
 
-.theme-buttons {
-  display: flex;
-  gap: 4px;
+.footer-action-primary:hover .footer-action-icon {
+  color: var(--accent-hover);
 }
+
 
 .btn-new-connection {
   width: 100%;

@@ -2,6 +2,7 @@ let selectedService = null;
 let savedConnections = [];
 let connectionGroups = [];
 let editingGroupId = null;
+let editingConnectionName = null; // Track the original name of connection being edited
 let searchTerm = '';
 let collapsedGroups = new Set();
 let isSessionActive = false;
@@ -482,12 +483,19 @@ function loadSavedConnections() {
 }
 
 function saveConnection(config, showNotification = true) {
-  const existing = savedConnections.findIndex(c => c.name === config.name);
+  // Use editingConnectionName to find the original connection (handles name changes)
+  const lookupName = editingConnectionName || config.name;
+  const existing = savedConnections.findIndex(c => c.name === lookupName);
+
   if (existing >= 0) {
     savedConnections[existing] = config;
   } else {
     savedConnections.push(config);
   }
+
+  // Update editingConnectionName to the new name after save
+  editingConnectionName = config.name;
+
   localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
   updateGroupDropdown();
@@ -531,6 +539,9 @@ function moveConnectionToGroup(connectionName, newGroupId) {
 function loadConnection(name) {
   const conn = savedConnections.find(c => c.name === name);
   if (!conn) return;
+
+  // Track the original name for editing
+  editingConnectionName = conn.name;
 
   document.getElementById('connectionName').value = conn.name;
   document.getElementById('profileSelect').value = conn.profile;
@@ -577,7 +588,7 @@ function setupEventListeners() {
     await handleSessionToggle();
   });
 
-  document.getElementById('newConnectionBtn').addEventListener('click', () => {
+  document.getElementById('newConnectionBtnFooter').addEventListener('click', () => {
     resetForm();
   });
 
@@ -669,6 +680,9 @@ function handleSaveGroup() {
 
 function resetForm() {
   document.getElementById('ssmForm').reset();
+
+  // Clear editing state - this is a new connection
+  editingConnectionName = null;
 
   // Select first service type by default (OpenSearch)
   const firstService = document.querySelector('input[name="service"]');
@@ -872,7 +886,7 @@ function initTheme() {
   setTheme(savedTheme);
 
   // Setup theme button listeners
-  document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+  document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const theme = btn.dataset.theme;
       setTheme(theme);
@@ -884,7 +898,7 @@ async function setTheme(theme) {
   localStorage.setItem('theme', theme);
 
   // Update button states
-  document.querySelectorAll('.theme-toggle-btn').forEach(btn => {
+  document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === theme);
   });
 
