@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS SSM Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Load xterm.js (browser library) -->
+  <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-info">
+          <div class="brand-name">SSM Manager</div>
+          <div class="brand-version">v1.0.0</div>
+        </div>
+      </div>
+
+      <div class="sidebar-toolbar">
+        <div class="search-container">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" id="connectionSearch" placeholder="Search..." class="search-input">
+        </div>
+        <button id="newConnectionBtn" class="btn-add-connection" title="Add Connection">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="sidebar-content">
+        <div id="connectionGroups" class="groups-list"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="import-export-actions">
+          <button id="importBtn" class="btn-import-export" title="Import Connections">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Import
+          </button>
+          <button id="exportBtn" class="btn-import-export" title="Export Connections">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Export
+          </button>
+        </div>
+        <div class="theme-toggle">
+          <span class="theme-toggle-label">
+            <span class="theme-toggle-icon">🎨</span>
+            Theme
+          </span>
+          <div class="theme-buttons">
+            <button id="themeLightBtn" class="theme-toggle-btn" data-theme="light" title="Light">☀️</button>
+            <button id="themeDarkBtn" class="theme-toggle-btn" data-theme="dark" title="Dark">🌙</button>
+            <button id="themeSystemBtn" class="theme-toggle-btn active" data-theme="system" title="System">💻</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-area">
+      <!-- New Connection Form -->
+      <div id="connectionForm" class="form-container">
+        <div class="form-header">
+          <h1>New Connection</h1>
+          <p>Configure your AWS SSM port forwarding session</p>
+        </div>
+
+        <form id="ssmForm">
+          <!-- Connection Name & Group -->
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label>Connection Name</label>
+              <input type="text" id="connectionName" placeholder="My OpenSearch Connection" class="form-input">
+            </div>
+            <div class="form-group flex-1">
+              <label>Group</label>
+              <select id="connectionGroup" class="form-select">
+                <option value="">No group</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- AWS Profile -->
+          <div class="form-group">
+            <label>AWS Profile</label>
+            <div class="input-with-action">
+              <select id="profileSelect" class="form-select">
+                <option value="">Select profile...</option>
+              </select>
+              <button type="button" id="refreshProfiles" class="btn-icon-action" title="Refresh profiles">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Service Type -->
+          <div class="form-group">
+            <label>Service Type</label>
+            <div class="service-options">
+              <label class="service-option">
+                <input type="radio" name="service" value="opensearch">
+                <div class="service-card">
+                  <img src="images/AmazonOpenSearch.svg" alt="OpenSearch" class="service-icon-img">
+                  <span class="service-label">Amazon OpenSearch</span>
+                </div>
+              </label>
+              <label class="service-option">
+                <input type="radio" name="service" value="aurora">
+                <div class="service-card">
+                  <img src="images/AmazonAurora.svg" alt="Aurora" class="service-icon-img">
+                  <span class="service-label">Amazon Aurora</span>
+                </div>
+              </label>
+              <label class="service-option">
+                <input type="radio" name="service" value="elasticache">
+                <div class="service-card">
+                  <img src="images/AmazonElastiCache.svg" alt="ElastiCache" class="service-icon-img">
+                  <span class="service-label">Amazon ElastiCache</span>
+                </div>
+              </label>
+              <label class="service-option">
+                <input type="radio" name="service" value="rabbitmq">
+                <div class="service-card">
+                  <img src="images/AmazonMQ.svg" alt="Amazon MQ" class="service-icon-img">
+                  <span class="service-label">Amazon MQ</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Bastion Host -->
+          <div class="form-group">
+            <label>Bastion EC2 Host ID</label>
+            <input type="text" id="targetInstance" placeholder="i-0abc123def456789" class="form-input" required>
+          </div>
+
+          <!-- Service Host -->
+          <div class="form-group">
+            <label>Service Host</label>
+            <input type="text" id="serviceHost" placeholder="your-service.region.amazonaws.com" class="form-input" required>
+          </div>
+
+          <!-- Ports -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>Remote Port</label>
+              <input type="text" id="remotePort" class="form-input readonly" readonly>
+            </div>
+            <div class="form-group">
+              <label>Local Port</label>
+              <input type="text" id="localPort" class="form-input readonly" readonly>
+            </div>
+          </div>
+
+          <!-- Region -->
+          <div class="form-group">
+            <label>AWS Region</label>
+            <select id="region" class="form-select" required>
+              <option value="">Select region...</option>
+              <option value="us-east-1">US East (N. Virginia)</option>
+              <option value="us-east-2">US East (Ohio)</option>
+              <option value="us-west-1">US West (N. California)</option>
+              <option value="us-west-2">US West (Oregon)</option>
+              <option value="ap-south-1">Asia Pacific (Mumbai)</option>
+              <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+              <option value="ap-southeast-2">Asia Pacific (Sydney)</option>
+              <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+              <option value="ap-northeast-2">Asia Pacific (Seoul)</option>
+              <option value="ca-central-1">Canada (Central)</option>
+              <option value="eu-central-1">Europe (Frankfurt)</option>
+              <option value="eu-west-1">Europe (Ireland)</option>
+              <option value="eu-west-2">Europe (London)</option>
+              <option value="eu-west-3">Europe (Paris)</option>
+              <option value="eu-north-1">Europe (Stockholm)</option>
+              <option value="sa-east-1">South America (São Paulo)</option>
+            </select>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button type="button" id="saveBtn" class="btn-save">Save Connection</button>
+            <button type="submit" id="connectBtn" class="btn-connect">Start Session</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Group Modal -->
+  <div id="groupModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">New Group</h3>
+        <button id="closeModal" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Group Name</label>
+          <input type="text" id="groupName" placeholder="e.g., Production, Development" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <div class="color-picker">
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#ef4444" checked>
+              <span class="color-dot" style="background: #ef4444"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#f97316">
+              <span class="color-dot" style="background: #f97316"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#eab308">
+              <span class="color-dot" style="background: #eab308"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#22c55e">
+              <span class="color-dot" style="background: #22c55e"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#06b6d4">
+              <span class="color-dot" style="background: #06b6d4"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#3b82f6">
+              <span class="color-dot" style="background: #3b82f6"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#8b5cf6">
+              <span class="color-dot" style="background: #8b5cf6"></span>
+            </label>
+            <label class="color-option">
+              <input type="radio" name="groupColor" value="#ec4899">
+              <span class="color-dot" style="background: #ec4899"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelGroup" class="btn-secondary">Cancel</button>
+        <button id="saveGroup" class="btn-primary">Save Group</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal Modal -->
+  <div id="terminalModal" class="terminal-modal hidden">
+    <div class="terminal-modal-content">
+      <div class="terminal-header">
+        <div class="terminal-title">
+          <span class="terminal-icon">⚡</span>
+          <span>SSM Session</span>
+          <span id="terminalStatus" class="terminal-status">Connecting...</span>
+        </div>
+        <div class="terminal-actions">
+          <button id="terminalMinimize" class="terminal-btn" title="Minimize">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button id="terminalClose" class="terminal-btn terminal-close-btn" title="Stop Session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="terminalContainer" class="terminal-body"></div>
+      <div class="terminal-footer">
+        <span id="terminalInfo">Local port: --</span>
+        <span id="terminalSessionId">Session: --</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

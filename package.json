@@ -1,0 +1,22 @@
+{
+  "name": "aws-ssm-manager",
+  "version": "1.0.0",
+  "description": "AWS SSM Manager - Secure Port Forwarding Made Simple",
+  "private": true,
+  "scripts": {
+    "app:start": "cd app && npm start",
+    "app:build": "cd app && npm run build",
+    "app:build:mac": "cd app && npm run build:mac",
+    "app:build:win": "cd app && npm run build:win",
+    "app:build:linux": "cd app && npm run build:linux",
+    "app:install": "cd app && npm install",
+    "website:dev": "cd website && npx serve ."
+  },
+  "keywords": [
+    "aws",
+    "ssm",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT"
+}

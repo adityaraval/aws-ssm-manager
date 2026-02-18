@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS SSM Manager - Secure Port Forwarding Made Simple</title>
+  <meta name="description" content="A beautiful, cross-platform desktop app for AWS SSM port forwarding. Connect to OpenSearch, Aurora, ElastiCache, and RabbitMQ securely.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            gray: {
+              50: '#fafafa',
+              100: '#f5f5f5',
+              200: '#e5e5e5',
+              300: '#d4d4d4',
+              400: '#a3a3a3',
+              500: '#737373',
+              600: '#525252',
+              700: '#404040',
+              800: '#262626',
+              900: '#171717',
+              950: '#0a0a0a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .gradient-text {
+      background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .feature-card:hover {
+      transform: translateY(-2px);
+    }
+    .download-btn:hover {
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body class="bg-white text-gray-900 font-sans antialiased">
+
+  <!-- Navigation -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center text-white text-sm">⚡</div>
+        <span class="font-semibold text-gray-900">SSM Manager</span>
+      </a>
+      <div class="flex items-center gap-6">
+        <a href="#features" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Features</a>
+        <a href="#download" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">Download</a>
+        <a href="https://github.com" target="_blank" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="pt-32 pb-20 px-6">
+    <div class="max-w-3xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-sm font-medium mb-8">
+        <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+        Now available for Mac, Windows & Linux
+      </div>
+
+      <h1 class="text-5xl sm:text-6xl font-bold tracking-tight text-gray-900 mb-6 leading-[1.1]">
+        AWS port forwarding,<br>
+        <span class="gradient-text">simplified.</span>
+      </h1>
+
+      <p class="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
+        A beautiful desktop app for managing AWS SSM sessions. Connect to your private databases and services through secure tunnels — no VPN required.
+      </p>
+
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#download" class="download-btn inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-13v6.586l-2.293-2.293-1.414 1.414L12 17.414l4.707-4.707-1.414-1.414L13 13.586V7h-2z"/></svg>
+          Download for Free
+        </a>
+        <a href="#features" class="inline-flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 font-medium transition-colors">
+          See how it works
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- App Preview -->
+  <section class="pb-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-gray-100 rounded-2xl p-2 shadow-2xl shadow-gray-900/10">
+        <div class="bg-white rounded-xl overflow-hidden border border-gray-200">
+          <!-- Mock window chrome -->
+          <div class="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div class="flex gap-1.5">
+              <div class="w-3 h-3 rounded-full bg-red-400"></div>
+              <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+              <div class="w-3 h-3 rounded-full bg-green-400"></div>
+            </div>
+            <div class="flex-1 text-center text-xs text-gray-400">AWS SSM Manager</div>
+          </div>
+          <!-- App screenshot placeholder -->
+          <div class="aspect-[16/10] bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+            <div class="text-center">
+              <div class="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center text-white text-3xl mx-auto mb-4">⚡</div>
+              <p class="text-gray-400 text-sm">App screenshot coming soon</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-20 px-6 bg-gray-50">
+    <div class="max-w-5xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">Everything you need</h2>
+        <p class="text-lg text-gray-500 max-w-2xl mx-auto">Simple, powerful features to manage your AWS SSM connections without the command-line complexity.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        <!-- Feature 1 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Multiple Services</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Connect to OpenSearch, Aurora PostgreSQL, ElastiCache Redis, and Amazon MQ with pre-configured defaults.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Organized Connections</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Group your connections by environment. Color-code Production, Development, and Staging for clarity.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Secure by Design</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Uses AWS SSM Session Manager under the hood. No inbound ports, no bastion SSH — just IAM credentials.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">One-Click Connect</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Save your connections and reconnect instantly. No more copying long CLI commands from documentation.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Dark Mode</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Easy on the eyes with automatic dark mode support. Follows your system preference or choose manually.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Quick Search</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Find any connection instantly with fuzzy search. Filter by name, profile, region, or service type.</p>
+        </div>
+
+        <!-- Feature 7 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Export & Import</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Backup your connections to JSON. Share configurations with your team or migrate between machines.</p>
+        </div>
+
+        <!-- Feature 8 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Drag & Drop</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Reorganize connections between groups with simple drag and drop. Keep your workspace tidy.</p>
+        </div>
+
+        <!-- Feature 9 -->
+        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
+          <div class="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center mb-4">
+            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">Live Terminal</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Watch session output in real-time with an embedded terminal. Debug connection issues instantly.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it Works -->
+  <section class="py-20 px-6">
+    <div class="max-w-4xl mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4">How it works</h2>
+        <p class="text-lg text-gray-500">Three simple steps to connect to your private AWS resources.</p>
+      </div>
+
+      <div class="space-y-12">
+        <div class="flex gap-6 items-start">
+          <div class="w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center font-semibold flex-shrink-0">1</div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">Select your AWS profile</h3>
+            <p class="text-gray-500">SSM Manager automatically detects your AWS CLI profiles. Just pick one from the dropdown.</p>
+          </div>
+        </div>
+
+        <div class="flex gap-6 items-start">
+          <div class="w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center font-semibold flex-shrink-0">2</div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">Configure your connection</h3>
+            <p class="text-gray-500">Choose your service type, enter your bastion EC2 instance ID and the target service endpoint. Ports are auto-filled.</p>
+          </div>
+        </div>
+
+        <div class="flex gap-6 items-start">
+          <div class="w-10 h-10 bg-gray-900 text-white rounded-full flex items-center justify-center font-semibold flex-shrink-0">3</div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">Connect and save</h3>
+            <p class="text-gray-500">Click "Start Session" and you're in. Save it for one-click access next time. View real-time logs in the terminal panel.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section id="download" class="py-20 px-6 bg-gray-900">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl font-bold text-white mb-4">Download SSM Manager</h2>
+      <p class="text-lg text-gray-400 mb-10">Free and open source. Available for all major platforms.</p>
+
+      <div class="grid sm:grid-cols-3 gap-4 max-w-xl mx-auto">
+        <!-- macOS -->
+        <a href="#" class="download-btn group flex flex-col items-center gap-3 p-6 bg-gray-800 hover:bg-gray-750 rounded-xl border border-gray-700 transition-all">
+          <svg class="w-10 h-10 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          <div>
+            <div class="text-white font-medium">macOS</div>
+            <div class="text-xs text-gray-500">Intel & Apple Silicon</div>
+          </div>
+        </a>
+
+        <!-- Windows -->
+        <a href="#" class="download-btn group flex flex-col items-center gap-3 p-6 bg-gray-800 hover:bg-gray-750 rounded-xl border border-gray-700 transition-all">
+          <svg class="w-10 h-10 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+          <div>
+            <div class="text-white font-medium">Windows</div>
+            <div class="text-xs text-gray-500">Windows 10+</div>
+          </div>
+        </a>
+
+        <!-- Linux -->
+        <a href="#" class="download-btn group flex flex-col items-center gap-3 p-6 bg-gray-800 hover:bg-gray-750 rounded-xl border border-gray-700 transition-all">
+          <svg class="w-10 h-10 text-gray-400 group-hover:text-white transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.002c-.06-.135-.12-.2-.184-.268-.193-.135-.406-.199-.603-.534-.268-.467-.644-.468-.903-.401-.259.066-.375.267-.506.602-.133.27-.333.733-.443.803-.01.135-.019.2-.027.332-.014.468-.09.735-.259 1.068-.287.599-.381.535-.442.734h-.003c-.013.066-.016.19-.025.396-.007.134.003.266-.034.465-.077.399-.263.867-.731 1.201l-.103.066c.037.463.079.98-.001 1.336-.003.022-.01.04-.015.06-.12-.168-.27-.336-.37-.465-.467-.601-.767-1.206-.9-1.803-.133-.601-.066-1.202.198-1.803v.003c.067-.135.097-.266.133-.399.032-.133.062-.266.09-.399.095-.467.156-.867.027-1.466-.135-.601-.402-1.203-.865-1.803a2.21 2.21 0 00-.022-.467c-.032-.266-.112-.465-.224-.665-.667-1.003-1.349-1.336-2.015-1.537-.666-.199-1.349-.266-2.015-.266h-.018c-.467.002-.902.069-1.234.2-.066.027-.133.054-.202.087-.333.135-.6.332-.801.534-.2.2-.333.332-.4.534v.002c-.066.135-.066.266-.066.399 0 .135 0 .266.066.4l.002.003c.066.133.066.199.065.331 0 .601-.267.935-.267 1.469 0 .534.267.933.534 1.068.089.2-.068.468-.188.666-.267.602-.667 1.136-.934 1.67-.267.534-.333.868-.335 1.336 0 .402.066.935.199 1.537h.003a.33.33 0 01-.082.03c-.19.065-.276.065-.479.004-.135-.04-.399-.204-.664-.534-.266-.333-.533-.867-.666-1.604v-.003c-.028-.134-.08-.465-.06-.866.017-.4.085-.866.184-1.269.166-.666.399-1.201.666-1.601.066-.133.13-.2.182-.266-.233-.535-.166-1.068-.066-1.604.2-.934.533-1.467 1-2.202.199-.332.466-.799.6-1.535.199-.933-.067-2.001.066-2.936.029-.198.072-.399.13-.6.104-.332.262-.667.492-.934-.13-.133-.267-.333-.333-.533-.333-.6.166-1.267.533-1.8.199-.266.399-.533.665-.733-.666 0-1.332.267-1.732.667-.399.399-.598.866-.799 1.333-.199.466-.398.933-.865 1.333-.467.4-1.199.6-2.065.4-.867-.2-1.533-.6-2.001-.933-.2-.134-.399-.334-.465-.467-.067-.135-.133-.2-.133-.4 0-.199.066-.6.199-.866.133-.268.265-.534.465-.8.2-.268.466-.534.8-.734.334-.2.733-.4 1.199-.467a3.495 3.495 0 011.4.067c-.265-.133-.53-.332-.864-.399a2.682 2.682 0 00-1.066-.066c-.533.066-1.066.266-1.466.599-.2.134-.332.268-.4.401-.065.133-.133.265-.198.399-.133.265-.265.666-.199 1.132.067.6.4 1.066.733 1.4.466.466.867.733 1.2.866.333.135.533.2.665.2.201 0 .266-.135.266-.135-.333.002-.531-.066-.732-.2-.199-.132-.398-.332-.598-.532-.2-.199-.332-.466-.332-.733 0-.266.066-.466.199-.666.133-.199.333-.332.533-.466.2-.133.466-.266.665-.333.2-.066.4-.133.6-.133.199 0 .399 0 .598.067.4.133.8.467 1.067.867.265.4.466.866.532 1.266.067.401.067.868-.132 1.2-.2.333-.467.534-.733.534-.267 0-.6-.135-.867-.334-.267-.2-.466-.466-.667-.666-.199-.2-.398-.4-.665-.467-.265-.066-.598.002-.798.134-.199.135-.332.332-.398.6-.067.265-.067.6.132.866.2.266.533.533.8.667.266.133.465.2.798.267.332.066.732.066 1.132-.002a2.08 2.08 0 00.865-.333c.133-.066.198-.2.332-.332.133-.135.199-.266.265-.4.067-.134.2-.267.2-.533-.467.133-.867.2-1.266.133-.4-.067-.799-.266-1.066-.533-.133-.132-.2-.266-.198-.399.002-.133.067-.266.133-.4.133-.2.333-.332.533-.465.2-.134.4-.266.599-.4.2-.133.333-.333.4-.533.066-.199.066-.467 0-.733-.134-.467-.467-.867-.934-1.067-.465-.2-1.066-.2-1.798.067z"/></svg>
+          <div>
+            <div class="text-white font-medium">Linux</div>
+            <div class="text-xs text-gray-500">AppImage & .deb</div>
+          </div>
+        </a>
+      </div>
+
+      <p class="text-sm text-gray-500 mt-8">
+        Requires AWS CLI and Session Manager plugin installed.
+        <a href="#" class="text-gray-400 hover:text-white underline">View setup guide →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 px-6 border-t border-gray-100">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 bg-gradient-to-br from-orange-500 to-orange-600 rounded flex items-center justify-center text-white text-xs">⚡</div>
+        <span class="text-sm text-gray-500">© 2024 SSM Manager. Open source under MIT license.</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com" target="_blank" class="text-sm text-gray-500 hover:text-gray-900 transition-colors">GitHub</a>
+        <a href="#" class="text-sm text-gray-500 hover:text-gray-900 transition-colors">Documentation</a>
+        <a href="#" class="text-sm text-gray-500 hover:text-gray-900 transition-colors">Report Issue</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
