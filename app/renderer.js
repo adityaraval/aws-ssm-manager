@@ -6,33 +6,45 @@ let editingConnectionName = null; // Track the original name of connection being
 let searchTerm = '';
 let collapsedGroups = new Set();
 let isSessionActive = false;
+let activeConnectionName = null; // Track which connection is currently active
+let activeConnectionConfig = null; // Store the active connection config for URL generation
+let pendingDeleteConnection = null; // Track connection pending deletion
 let terminal = null;
 let fitAddon = null;
+
+// Session timer
+let sessionStartTime = null;
+let sessionDuration = 10 * 60 * 1000; // 10 minutes default
+let timerInterval = null;
 
 const serviceConfig = {
   opensearch: {
     name: 'Amazon OpenSearch',
     icon: 'images/AmazonOpenSearch.svg',
     remotePort: '443',
-    localPort: '5601'
+    localPort: '5601',
+    urlTemplate: (port) => `https://localhost:${port}/_dashboards`
   },
   aurora: {
     name: 'Amazon Aurora',
     icon: 'images/AmazonAurora.svg',
     remotePort: '5432',
-    localPort: '5432'
+    localPort: '5432',
+    urlTemplate: (port) => `postgresql://localhost:${port}`
   },
   elasticache: {
     name: 'Amazon ElastiCache',
     icon: 'images/AmazonElastiCache.svg',
     remotePort: '6379',
-    localPort: '6379'
+    localPort: '6379',
+    urlTemplate: (port) => `redis://localhost:${port}`
   },
   rabbitmq: {
     name: 'Amazon MQ',
     icon: 'images/AmazonMQ.svg',
     remotePort: '443',
-    localPort: '15672'
+    localPort: '15672',
+    urlTemplate: (port) => `https://localhost:${port}`
   }
 };
 
@@ -397,8 +409,7 @@ function attachGroupEventListeners(container) {
   container.querySelectorAll('.connection-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      deleteConnection(btn.dataset.name);
-      showToast('Connection deleted');
+      openDeleteModal(btn.dataset.name);
     });
   });
 
@@ -513,12 +524,17 @@ function deleteConnection(name) {
 function renderConnectionItem(conn, group) {
   const borderColor = group ? group.color : 'transparent';
   const iconSrc = serviceConfig[conn.service]?.icon || 'images/AmazonOpenSearch.svg';
+  const isActive = isSessionActive && activeConnectionName === conn.name;
+  const isSelected = editingConnectionName === conn.name;
+  const activeClass = isActive ? 'active-session' : '';
+  const selectedClass = isSelected ? 'selected' : '';
+  const activeDot = isActive ? '<span class="connection-active-dot" title="Session active"></span>' : '';
 
   return `
-    <div class="connection-item" data-name="${conn.name}" draggable="true" style="border-left-color: ${borderColor}">
+    <div class="connection-item ${activeClass} ${selectedClass}" data-name="${conn.name}" draggable="true" style="border-left-color: ${borderColor}">
       <img src="${iconSrc}" alt="" class="connection-icon-img">
       <div class="connection-info">
-        <div class="connection-name">${conn.name}</div>
+        <div class="connection-name">${activeDot}${conn.name}</div>
         <div class="connection-meta">${conn.profile} · ${conn.region}</div>
       </div>
       <button class="connection-delete" data-name="${conn.name}" title="Delete">×</button>
@@ -555,10 +571,34 @@ function loadConnection(name) {
     serviceRadio.checked = true;
     selectedService = conn.service;
     document.getElementById('remotePort').value = serviceConfig[conn.service].remotePort;
-    document.getElementById('localPort').value = serviceConfig[conn.service].localPort;
+    // Use saved local port if available, otherwise use default
+    document.getElementById('localPort').value = conn.localPortNumber || serviceConfig[conn.service].localPort;
   }
 
+  // Update form header to show edit mode
+  updateFormHeader(conn.name);
+
+  // Update sidebar to highlight selected connection
+  renderGroupsWithConnections();
+
+  // Update button state (might change if session is active on different connection)
+  updateSessionButton();
+
   showToast(`Loaded: ${name}`);
+}
+
+// Update form header based on edit state
+function updateFormHeader(connectionName = null) {
+  const headerTitle = document.querySelector('.form-header h1');
+  const headerDesc = document.querySelector('.form-header p');
+
+  if (connectionName) {
+    headerTitle.textContent = 'Edit Connection';
+    headerDesc.innerHTML = `Editing: <strong>${connectionName}</strong>`;
+  } else {
+    headerTitle.textContent = 'New Connection';
+    headerDesc.textContent = 'Configure your AWS SSM port forwarding session';
+  }
 }
 
 // Event Listeners
@@ -611,9 +651,24 @@ function setupEventListeners() {
   document.getElementById('exportBtn').addEventListener('click', exportConnections);
   document.getElementById('importBtn').addEventListener('click', importConnections);
 
+  // Delete confirmation modal
+  document.getElementById('closeDeleteModal').addEventListener('click', closeDeleteModal);
+  document.getElementById('cancelDelete').addEventListener('click', closeDeleteModal);
+  document.getElementById('confirmDelete').addEventListener('click', confirmDeleteConnection);
+  document.getElementById('deleteModal').addEventListener('click', (e) => {
+    if (e.target.id === 'deleteModal') closeDeleteModal();
+  });
+
+  // Copy URL button
+  document.getElementById('copyUrlBtn').addEventListener('click', copyActiveUrl);
+
   window.electronAPI.onSessionClosed((event, data) => {
     isSessionActive = false;
+    activeConnectionName = null;
+    activeConnectionConfig = null;
     updateSessionButton();
+    stopSessionTimer();
+    renderGroupsWithConnections(); // Re-render to remove active indicator
     showToast('Session closed');
 
     if (terminal) {
@@ -658,6 +713,26 @@ function closeGroupModal() {
   editingGroupId = null;
 }
 
+// Delete Confirmation Modal
+function openDeleteModal(connectionName) {
+  pendingDeleteConnection = connectionName;
+  document.getElementById('deleteConnectionName').textContent = connectionName;
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.add('hidden');
+  pendingDeleteConnection = null;
+}
+
+function confirmDeleteConnection() {
+  if (pendingDeleteConnection) {
+    deleteConnection(pendingDeleteConnection);
+    showToast('Connection deleted');
+    closeDeleteModal();
+  }
+}
+
 function handleSaveGroup() {
   const name = document.getElementById('groupName').value.trim();
   const color = document.querySelector('input[name="groupColor"]:checked').value;
@@ -693,6 +768,15 @@ function resetForm() {
     document.getElementById('remotePort').value = config.remotePort;
     document.getElementById('localPort').value = config.localPort;
   }
+
+  // Reset form header to "New Connection"
+  updateFormHeader(null);
+
+  // Update sidebar to remove selection highlight
+  renderGroupsWithConnections();
+
+  // Update button state
+  updateSessionButton();
 }
 
 function getConnectionConfig() {
@@ -789,8 +873,12 @@ async function startSession() {
 
   if (result.success) {
     isSessionActive = true;
+    activeConnectionName = config.name;
+    activeConnectionConfig = config;
     updateSessionButton();
     saveConnection(config, false);
+    renderGroupsWithConnections(); // Re-render to show active indicator
+    startSessionTimer(); // Start countdown timer
 
     // Update terminal session info
     if (result.sessionId) {
@@ -822,7 +910,11 @@ async function stopSession() {
 
   if (result.success) {
     isSessionActive = false;
+    activeConnectionName = null;
+    activeConnectionConfig = null;
     updateSessionButton();
+    stopSessionTimer();
+    renderGroupsWithConnections(); // Re-render to remove active indicator
     showToast('Session stopped');
 
     if (terminal) {
@@ -837,12 +929,37 @@ async function stopSession() {
 
 function updateSessionButton() {
   const connectBtn = document.getElementById('connectBtn');
+  const saveBtn = document.getElementById('saveBtn');
+
+  // Get current connection name from form
+  const currentFormConnection = document.getElementById('connectionName').value.trim() || editingConnectionName;
+
+  // Check if viewing the active connection
+  const isViewingActiveConnection = isSessionActive && activeConnectionName &&
+    (currentFormConnection === activeConnectionName || editingConnectionName === activeConnectionName);
+
   if (isSessionActive) {
-    connectBtn.textContent = 'Stop Session';
-    connectBtn.classList.add('btn-stop');
+    if (isViewingActiveConnection) {
+      // Viewing the active connection - show Stop Session
+      connectBtn.textContent = 'Stop Session';
+      connectBtn.classList.add('btn-stop');
+      connectBtn.classList.remove('btn-disabled-session');
+      connectBtn.disabled = false;
+      saveBtn.disabled = false;
+    } else {
+      // Viewing a different connection while session is active
+      connectBtn.textContent = `Session active: ${activeConnectionName}`;
+      connectBtn.classList.remove('btn-stop');
+      connectBtn.classList.add('btn-disabled-session');
+      connectBtn.disabled = true;
+      saveBtn.disabled = false; // Still allow saving other connections
+    }
   } else {
+    // No active session
     connectBtn.textContent = 'Start Session';
-    connectBtn.classList.remove('btn-stop');
+    connectBtn.classList.remove('btn-stop', 'btn-disabled-session');
+    connectBtn.disabled = false;
+    saveBtn.disabled = false;
   }
 }
 
@@ -863,6 +980,66 @@ async function checkSessionStatus() {
   }
 }
 
+// Session Timer Functions
+function startSessionTimer() {
+  sessionStartTime = Date.now();
+  updateTimerDisplay();
+
+  // Update timer every second
+  timerInterval = setInterval(() => {
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function stopSessionTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  sessionStartTime = null;
+
+  // Reset timer display
+  const timerValue = document.getElementById('timerValue');
+  const timerContainer = document.getElementById('sessionTimer');
+  if (timerValue) timerValue.textContent = '10:00';
+  if (timerContainer) {
+    timerContainer.classList.remove('warning', 'danger');
+  }
+}
+
+function updateTimerDisplay() {
+  if (!sessionStartTime) return;
+
+  const elapsed = Date.now() - sessionStartTime;
+  const remaining = Math.max(0, sessionDuration - elapsed);
+
+  const minutes = Math.floor(remaining / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+
+  const timerValue = document.getElementById('timerValue');
+  const timerContainer = document.getElementById('sessionTimer');
+
+  if (timerValue) {
+    timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  // Update timer styling based on remaining time
+  if (timerContainer) {
+    timerContainer.classList.remove('warning', 'danger');
+
+    if (remaining <= 60000) { // Less than 1 minute
+      timerContainer.classList.add('danger');
+    } else if (remaining <= 180000) { // Less than 3 minutes
+      timerContainer.classList.add('warning');
+    }
+  }
+
+  // Session expired
+  if (remaining <= 0) {
+    stopSessionTimer();
+  }
+}
+
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
 
@@ -878,6 +1055,39 @@ function showToast(message, type = 'info') {
     toast.style.transition = 'all 0.15s ease-out';
     setTimeout(() => toast.remove(), 150);
   }, 2500);
+}
+
+// Copy Active URL to clipboard
+function copyActiveUrl() {
+  if (!activeConnectionConfig) {
+    showToast('No active session', 'error');
+    return;
+  }
+
+  const service = activeConnectionConfig.service;
+  const port = activeConnectionConfig.localPortNumber;
+  const config = serviceConfig[service];
+
+  if (!config || !config.urlTemplate) {
+    showToast('Could not generate URL', 'error');
+    return;
+  }
+
+  const url = config.urlTemplate(port);
+
+  navigator.clipboard.writeText(url).then(() => {
+    const copyBtn = document.getElementById('copyUrlBtn');
+    copyBtn.classList.add('copied');
+    copyBtn.querySelector('span').textContent = 'Copied!';
+    showToast(`Copied: ${url}`, 'success');
+
+    setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.querySelector('span').textContent = 'Copy URL';
+    }, 2000);
+  }).catch(() => {
+    showToast('Failed to copy to clipboard', 'error');
+  });
 }
 
 // Theme Management

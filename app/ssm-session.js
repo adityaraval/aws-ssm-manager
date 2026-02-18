@@ -1,47 +1,22 @@
 /**
- * SSM Session Handler using AWS SDK v3 and WebSocket
- * Implements the Session Manager protocol for port forwarding
+ * SSM Session Handler using AWS CLI
+ * Simple and reliable port forwarding using 'aws ssm start-session'
  */
 
-const { SSMClient, StartSessionCommand, TerminateSessionCommand } = require('@aws-sdk/client-ssm');
-const { fromIni } = require('@aws-sdk/credential-providers');
-const WebSocket = require('ws');
-const net = require('net');
-const crypto = require('crypto');
+const { spawn } = require('child_process');
 
-// SSM Message Types
-const MESSAGE_TYPES = {
-  INPUT_STREAM_DATA: 'input_stream_data',
-  OUTPUT_STREAM_DATA: 'output_stream_data',
-  ACKNOWLEDGE: 'acknowledge',
-  CHANNEL_CLOSED: 'channel_closed',
-  START_PUBLICATION: 'start_publication',
-  PAUSE_PUBLICATION: 'pause_publication'
-};
-
-// Payload Types
-const PAYLOAD_TYPES = {
-  OUTPUT: 1,
-  ERROR: 2,
-  FLAG: 3,
-  HANDSHAKE_REQUEST: 5,
-  HANDSHAKE_RESPONSE: 6,
-  HANDSHAKE_COMPLETE: 7
-};
+// Default session timeout: 10 minutes
+const DEFAULT_SESSION_TIMEOUT = 10 * 60 * 1000;
 
 class SSMSession {
   constructor(config, onOutput, onStatus) {
     this.config = config;
-    this.onOutput = onOutput || (() => {});
-    this.onStatus = onStatus || (() => {});
-    this.ws = null;
-    this.sessionId = null;
-    this.streamUrl = null;
-    this.tokenValue = null;
-    this.sequenceNumber = 0;
-    this.localServer = null;
-    this.localConnections = new Map();
+    this.onOutput = onOutput || (() => { });
+    this.onStatus = onStatus || (() => { });
+    this.process = null;
     this.isConnected = false;
+    this.sessionTimeout = null;
+    this.sessionDuration = config.sessionTimeout || DEFAULT_SESSION_TIMEOUT;
   }
 
   log(message, type = 'info') {
@@ -53,50 +28,84 @@ class SSMSession {
   async start() {
     try {
       this.onStatus('connecting');
-      this.log('Initializing AWS SSM session...');
-
-      // Create SSM client with profile credentials
-      const ssmClient = new SSMClient({
-        region: this.config.region,
-        credentials: fromIni({ profile: this.config.profile })
-      });
-
-      this.log(`Using profile: ${this.config.profile}`);
+      this.log('Starting AWS SSM port forwarding session...');
+      this.log(`Profile: ${this.config.profile}`);
       this.log(`Region: ${this.config.region}`);
       this.log(`Target: ${this.config.target}`);
+      this.log(`Host: ${this.config.host}`);
+      this.log(`Port: ${this.config.portNumber} → localhost:${this.config.localPortNumber}`);
+      this.log(`Session timeout: ${this.sessionDuration / 60000} minutes`);
 
-      // Start session via SDK
-      const command = new StartSessionCommand({
-        Target: this.config.target,
-        DocumentName: 'AWS-StartPortForwardingSessionToRemoteHost',
-        Parameters: {
-          portNumber: [this.config.portNumber],
-          localPortNumber: [this.config.localPortNumber],
-          host: [this.config.host]
+      // Build AWS CLI arguments
+      const args = [
+        'ssm', 'start-session',
+        '--target', this.config.target,
+        '--document-name', 'AWS-StartPortForwardingSessionToRemoteHost',
+        '--parameters', `host=${this.config.host},portNumber=${this.config.portNumber},localPortNumber=${this.config.localPortNumber}`,
+        '--region', this.config.region,
+        '--profile', this.config.profile
+      ];
+
+      this.log('Executing: aws ' + args.join(' '));
+
+      // Spawn AWS CLI process with its own process group (for clean termination)
+      this.process = spawn('aws', args, {
+        detached: process.platform !== 'win32', // Create new process group (Unix only)
+        env: {
+          ...process.env,
+          AWS_PROFILE: this.config.profile,
+          AWS_REGION: this.config.region
         }
       });
 
-      this.log('Starting SSM session...');
-      const response = await ssmClient.send(command);
+      // Handle stdout
+      this.process.stdout.on('data', (data) => {
+        const output = data.toString();
+        output.split('\n').filter(line => line.trim()).forEach(line => {
+          this.handleOutput(line.trim());
+        });
+      });
 
-      this.sessionId = response.SessionId;
-      this.streamUrl = response.StreamUrl;
-      this.tokenValue = response.TokenValue;
+      // Handle stderr
+      this.process.stderr.on('data', (data) => {
+        const error = data.toString().trim();
+        if (error) {
+          this.log(error, 'error');
+        }
+      });
 
-      this.log(`Session ID: ${this.sessionId}`, 'success');
-      this.log(`Stream URL: ${this.streamUrl.substring(0, 50)}...`);
+      // Handle process close
+      this.process.on('close', (code) => {
+        this.clearSessionTimeout();
+        this.isConnected = false;
+        this.onStatus('disconnected');
 
-      // Connect to WebSocket
-      await this.connectWebSocket();
+        if (code === 0) {
+          this.log('Session ended normally', 'info');
+        } else if (code === null) {
+          this.log('Session terminated', 'info');
+        } else {
+          this.log(`Session ended with code: ${code}`, 'error');
+        }
+      });
 
-      // Start local TCP server for port forwarding
-      await this.startLocalServer();
+      this.process.on('error', (error) => {
+        this.log(`Failed to start session: ${error.message}`, 'error');
+        this.onStatus('error');
+      });
+
+      // Set session timeout
+      this.startSessionTimeout();
+
+      // Wait a bit for the session to initialize
+      await this.waitForConnection();
 
       return {
         success: true,
-        sessionId: this.sessionId,
+        sessionId: `ssm-${Date.now()}`,
         localUrl: `https://localhost:${this.config.localPortNumber}`
       };
+
     } catch (error) {
       this.log(`Failed to start session: ${error.message}`, 'error');
       this.onStatus('error');
@@ -104,337 +113,108 @@ class SSMSession {
     }
   }
 
-  async connectWebSocket() {
-    return new Promise((resolve, reject) => {
-      this.log('Connecting to WebSocket...');
+  handleOutput(line) {
+    // Detect connection states from AWS CLI output
+    if (line.includes('Starting session with SessionId')) {
+      const sessionId = line.split('SessionId:')[1]?.trim() || 'unknown';
+      this.log(`Session started: ${sessionId}`, 'success');
+    } else if (line.includes('Port') && line.includes('opened')) {
+      this.log(line, 'success');
+      this.isConnected = true;
+      this.onStatus('connected');
+    } else if (line.includes('Waiting for connections')) {
+      this.log('Ready! Waiting for connections...', 'success');
+      this.isConnected = true;
+      this.onStatus('connected');
+    } else if (line.includes('Connection accepted')) {
+      this.log('Connection accepted from client', 'success');
+    } else if (line.includes('error') || line.includes('Error') || line.includes('ERROR')) {
+      this.log(line, 'error');
+    } else if (line.includes('Exiting session')) {
+      this.log('Session exiting...', 'info');
+    } else {
+      this.log(line);
+    }
+  }
 
-      this.ws = new WebSocket(this.streamUrl);
-
-      this.ws.on('open', () => {
-        this.log('WebSocket connected', 'success');
-        this.isConnected = true;
-
-        // Send authentication token
-        this.sendOpenDataChannel();
-        resolve();
-      });
-
-      this.ws.on('message', (data) => {
-        this.handleMessage(data);
-      });
-
-      this.ws.on('close', (code, reason) => {
-        this.log(`WebSocket closed: ${code} - ${reason || 'No reason'}`, 'error');
-        this.isConnected = false;
-        this.onStatus('disconnected');
-      });
-
-      this.ws.on('error', (error) => {
-        this.log(`WebSocket error: ${error.message}`, 'error');
-        reject(error);
-      });
-
-      // Timeout for connection
+  waitForConnection() {
+    return new Promise((resolve) => {
+      // Resolve after a short delay - the session is starting
       setTimeout(() => {
-        if (!this.isConnected) {
-          reject(new Error('WebSocket connection timeout'));
+        if (this.process && !this.process.killed) {
+          resolve();
         }
-      }, 10000);
+      }, 2000);
     });
   }
 
-  sendOpenDataChannel() {
-    // Send the token for authentication
-    const openDataChannelInput = {
-      MessageSchemaVersion: '1.0',
-      RequestId: crypto.randomUUID(),
-      TokenValue: this.tokenValue,
-      ClientId: crypto.randomUUID()
-    };
+  startSessionTimeout() {
+    this.clearSessionTimeout();
 
-    this.log('Sending authentication token...');
-    this.ws.send(JSON.stringify(openDataChannelInput));
+    const timeoutMinutes = this.sessionDuration / 60000;
+    this.log(`Session will auto-close in ${timeoutMinutes} minutes`, 'info');
+
+    this.sessionTimeout = setTimeout(() => {
+      this.log('Session timeout reached. Closing session...', 'info');
+      this.stop();
+    }, this.sessionDuration);
   }
 
-  handleMessage(data) {
-    try {
-      // First, try to parse as JSON (for initial responses)
-      if (data.length < 100) {
-        try {
-          const jsonData = JSON.parse(data.toString());
-          if (jsonData.MessageType) {
-            this.log(`Received: ${jsonData.MessageType}`);
-          }
-          return;
-        } catch (e) {
-          // Not JSON, continue with binary parsing
-        }
-      }
-
-      // Parse binary SSM message
-      const message = this.parseAgentMessage(data);
-
-      if (message) {
-        switch (message.messageType) {
-          case MESSAGE_TYPES.OUTPUT_STREAM_DATA:
-            this.handleOutputData(message);
-            break;
-          case MESSAGE_TYPES.ACKNOWLEDGE:
-            // Acknowledgment received
-            break;
-          case MESSAGE_TYPES.CHANNEL_CLOSED:
-            this.log('Channel closed by server', 'error');
-            this.stop();
-            break;
-          default:
-            // this.log(`Message type: ${message.messageType}`);
-        }
-
-        // Send acknowledgment
-        if (message.messageType !== MESSAGE_TYPES.ACKNOWLEDGE) {
-          this.sendAcknowledge(message);
-        }
-      }
-    } catch (error) {
-      // Binary data that we couldn't parse - might be port forwarding data
-      this.handlePortForwardingData(data);
+  clearSessionTimeout() {
+    if (this.sessionTimeout) {
+      clearTimeout(this.sessionTimeout);
+      this.sessionTimeout = null;
     }
-  }
-
-  parseAgentMessage(data) {
-    try {
-      const buffer = Buffer.from(data);
-      if (buffer.length < 116) return null;
-
-      // SSM Agent Message Header Format:
-      // - 4 bytes: Header Length
-      // - 16 bytes: Message Type
-      // - 4 bytes: Schema Version
-      // - 8 bytes: Created Date
-      // - 8 bytes: Sequence Number
-      // - 8 bytes: Flags
-      // - 16 bytes: Message ID
-      // - 20 bytes: Payload Digest
-      // - 4 bytes: Payload Type
-      // - 4 bytes: Payload Length
-      // - N bytes: Payload
-
-      let offset = 4; // Skip header length
-
-      // Message Type (16 bytes, null-terminated string)
-      const messageTypeEnd = buffer.indexOf(0, offset);
-      const messageType = buffer.toString('utf8', offset, messageTypeEnd > offset ? messageTypeEnd : offset + 16).trim();
-      offset += 16;
-
-      // Schema Version (4 bytes)
-      offset += 4;
-
-      // Created Date (8 bytes)
-      offset += 8;
-
-      // Sequence Number (8 bytes)
-      const sequenceNumber = buffer.readBigUInt64BE(offset);
-      offset += 8;
-
-      // Flags (8 bytes)
-      offset += 8;
-
-      // Message ID (16 bytes)
-      offset += 16;
-
-      // Payload Digest (20 bytes)
-      offset += 20;
-
-      // Payload Type (4 bytes)
-      const payloadType = buffer.readUInt32BE(offset);
-      offset += 4;
-
-      // Payload Length (4 bytes)
-      const payloadLength = buffer.readUInt32BE(offset);
-      offset += 4;
-
-      // Payload
-      const payload = buffer.slice(offset, offset + payloadLength);
-
-      return {
-        messageType,
-        sequenceNumber: Number(sequenceNumber),
-        payloadType,
-        payload
-      };
-    } catch (error) {
-      return null;
-    }
-  }
-
-  handleOutputData(message) {
-    if (message.payload && message.payload.length > 0) {
-      const text = message.payload.toString('utf8');
-      if (text.includes('Waiting for connections') || text.includes('Port')) {
-        this.log(text.trim(), 'success');
-        this.onStatus('connected');
-      } else if (text.trim().length > 0) {
-        this.log(text.trim());
-      }
-    }
-  }
-
-  handlePortForwardingData(data) {
-    // Forward data to local connections if any
-    for (const [id, socket] of this.localConnections) {
-      if (!socket.destroyed) {
-        socket.write(data);
-      }
-    }
-  }
-
-  sendAcknowledge(message) {
-    try {
-      const ackMessage = this.buildAgentMessage(
-        MESSAGE_TYPES.ACKNOWLEDGE,
-        Buffer.from(JSON.stringify({
-          AcknowledgedMessageType: message.messageType,
-          AcknowledgedMessageId: '',
-          AcknowledgedMessageSequenceNumber: message.sequenceNumber,
-          IsSequentialMessage: true
-        }))
-      );
-      this.ws.send(ackMessage);
-    } catch (error) {
-      // Ignore ack errors
-    }
-  }
-
-  buildAgentMessage(messageType, payload) {
-    // Build SSM agent message format
-    const headerLength = 116;
-    const messageTypeBuffer = Buffer.alloc(16);
-    messageTypeBuffer.write(messageType);
-
-    const schemaVersion = Buffer.alloc(4);
-    schemaVersion.writeUInt32BE(1);
-
-    const createdDate = Buffer.alloc(8);
-    createdDate.writeBigUInt64BE(BigInt(Date.now()));
-
-    const sequenceNumber = Buffer.alloc(8);
-    sequenceNumber.writeBigUInt64BE(BigInt(this.sequenceNumber++));
-
-    const flags = Buffer.alloc(8);
-    flags.writeBigUInt64BE(BigInt(0));
-
-    const messageId = crypto.randomBytes(16);
-
-    const payloadDigest = crypto.createHash('sha256').update(payload).digest().slice(0, 20);
-
-    const payloadType = Buffer.alloc(4);
-    payloadType.writeUInt32BE(PAYLOAD_TYPES.OUTPUT);
-
-    const payloadLength = Buffer.alloc(4);
-    payloadLength.writeUInt32BE(payload.length);
-
-    const headerLengthBuffer = Buffer.alloc(4);
-    headerLengthBuffer.writeUInt32BE(headerLength);
-
-    return Buffer.concat([
-      headerLengthBuffer,
-      messageTypeBuffer,
-      schemaVersion,
-      createdDate,
-      sequenceNumber,
-      flags,
-      messageId,
-      payloadDigest,
-      payloadType,
-      payloadLength,
-      payload
-    ]);
-  }
-
-  async startLocalServer() {
-    return new Promise((resolve, reject) => {
-      const localPort = parseInt(this.config.localPortNumber);
-
-      this.localServer = net.createServer((socket) => {
-        const connectionId = crypto.randomUUID();
-        this.localConnections.set(connectionId, socket);
-        this.log(`Local connection established (${connectionId.substring(0, 8)})`);
-
-        socket.on('data', (data) => {
-          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // Forward data through WebSocket
-            const message = this.buildAgentMessage(MESSAGE_TYPES.INPUT_STREAM_DATA, data);
-            this.ws.send(message);
-          }
-        });
-
-        socket.on('close', () => {
-          this.localConnections.delete(connectionId);
-          this.log(`Local connection closed (${connectionId.substring(0, 8)})`);
-        });
-
-        socket.on('error', (error) => {
-          this.log(`Local connection error: ${error.message}`, 'error');
-          this.localConnections.delete(connectionId);
-        });
-      });
-
-      this.localServer.on('error', (error) => {
-        if (error.code === 'EADDRINUSE') {
-          this.log(`Port ${localPort} is already in use`, 'error');
-          reject(new Error(`Port ${localPort} is already in use`));
-        } else {
-          reject(error);
-        }
-      });
-
-      this.localServer.listen(localPort, '127.0.0.1', () => {
-        this.log(`Local server listening on port ${localPort}`, 'success');
-        this.log(`Connect to: https://localhost:${localPort}`, 'success');
-        this.onStatus('connected');
-        resolve();
-      });
-    });
   }
 
   async stop() {
     this.log('Stopping session...');
     this.onStatus('disconnecting');
+    this.clearSessionTimeout();
 
-    // Close local connections
-    for (const [id, socket] of this.localConnections) {
-      socket.destroy();
-    }
-    this.localConnections.clear();
+    if (this.process) {
+      const pid = this.process.pid;
+      this.log(`Killing process ${pid}...`);
 
-    // Close local server
-    if (this.localServer) {
-      this.localServer.close();
-      this.localServer = null;
-    }
-
-    // Close WebSocket
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    // Terminate session via SDK
-    if (this.sessionId && this.config.profile && this.config.region) {
       try {
-        const ssmClient = new SSMClient({
-          region: this.config.region,
-          credentials: fromIni({ profile: this.config.profile })
-        });
+        // Kill the entire process tree (AWS CLI spawns child processes)
+        if (process.platform === 'win32') {
+          // Windows: use taskkill
+          const { execSync } = require('child_process');
+          try {
+            execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' });
+          } catch (e) {
+            // Process might already be dead
+          }
+        } else {
+          // macOS/Linux: kill process group
+          try {
+            process.kill(-pid, 'SIGTERM');
+          } catch (e) {
+            // Try killing just the process if group kill fails
+            try {
+              this.process.kill('SIGTERM');
+            } catch (e2) {
+              // Process might already be dead
+            }
+          }
 
-        await ssmClient.send(new TerminateSessionCommand({
-          SessionId: this.sessionId
-        }));
+          // Force kill after 1 second if still running
+          setTimeout(() => {
+            try {
+              process.kill(-pid, 'SIGKILL');
+            } catch (e) {
+              // Already dead
+            }
+          }, 1000);
+        }
 
-        this.log('Session terminated', 'success');
+        this.log('Session process terminated', 'success');
       } catch (error) {
-        this.log(`Failed to terminate session: ${error.message}`, 'error');
+        this.log(`Error stopping process: ${error.message}`, 'error');
       }
+
+      this.process = null;
     }
 
     this.isConnected = false;
@@ -445,7 +225,7 @@ class SSMSession {
   getStatus() {
     return {
       connected: this.isConnected,
-      sessionId: this.sessionId,
+      sessionId: this.process ? `pid-${this.process.pid}` : null,
       localPort: this.config.localPortNumber
     };
   }

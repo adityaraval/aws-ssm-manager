@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +13,7 @@
   <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
 </head>
+
 <body>
   <div class="app-layout">
     <!-- Sidebar -->
@@ -25,20 +27,21 @@
         <div class="mode-toggle">
           <button id="themeLightBtn" class="mode-btn" data-theme="light" title="Light Mode">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="5"/>
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              <circle cx="12" cy="12" r="5" />
+              <path
+                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
             </svg>
           </button>
           <button id="themeDarkBtn" class="mode-btn" data-theme="dark" title="Dark Mode">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           </button>
           <button id="themeSystemBtn" class="mode-btn active" data-theme="system" title="System Mode">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
           </button>
         </div>
@@ -46,9 +49,10 @@
 
       <div class="sidebar-toolbar">
         <div class="search-container">
-          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.35-4.35"/>
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
           </svg>
           <input type="text" id="connectionSearch" placeholder="Search..." class="search-input">
         </div>
@@ -63,9 +67,9 @@
           <button id="importBtn" class="footer-action-btn" title="Import Connections">
             <span class="footer-action-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
-                <path d="M12 4v12"/>
-                <path d="M8 12l4 4 4-4"/>
+                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                <path d="M12 4v12" />
+                <path d="M8 12l4 4 4-4" />
               </svg>
             </span>
             <span class="footer-action-text">Import connections...</span>
@@ -73,19 +77,20 @@
           <button id="exportBtn" class="footer-action-btn" title="Export Connections">
             <span class="footer-action-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
-                <path d="M12 4v12"/>
-                <path d="M8 8l4-4 4 4"/>
+                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                <path d="M12 4v12" />
+                <path d="M8 8l4-4 4 4" />
               </svg>
             </span>
             <span class="footer-action-text">Export connections...</span>
           </button>
-          <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary" title="Create New Connection">
+          <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary"
+            title="Create New Connection">
             <span class="footer-action-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8v8"/>
-                <path d="M8 12h8"/>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v8" />
+                <path d="M8 12h8" />
               </svg>
             </span>
             <span class="footer-action-text">Create connection...</span>
@@ -127,8 +132,8 @@
               </select>
               <button type="button" id="refreshProfiles" class="btn-icon-action" title="Refresh profiles">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 4v6h-6M1 20v-6h6"/>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                  <path d="M23 4v6h-6M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                 </svg>
               </button>
             </div>
@@ -178,7 +183,8 @@
           <!-- Service Host -->
           <div class="form-group">
             <label>Service Host</label>
-            <input type="text" id="serviceHost" placeholder="your-service.region.amazonaws.com" class="form-input" required>
+            <input type="text" id="serviceHost" placeholder="your-service.region.amazonaws.com" class="form-input"
+              required>
           </div>
 
           <!-- Ports -->
@@ -188,8 +194,8 @@
               <input type="text" id="remotePort" class="form-input readonly" readonly>
             </div>
             <div class="form-group">
-              <label>Local Port</label>
-              <input type="text" id="localPort" class="form-input readonly" readonly>
+              <label>Local Port <span class="label-hint">(editable)</span></label>
+              <input type="text" id="localPort" class="form-input" placeholder="5601">
             </div>
           </div>
 
@@ -284,6 +290,24 @@
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal-overlay hidden">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h3>Delete Connection</h3>
+        <button id="closeDeleteModal" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-message">Are you sure you want to delete "<span id="deleteConnectionName"></span>"?</p>
+        <p class="delete-warning">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelDelete" class="btn-secondary">Cancel</button>
+        <button id="confirmDelete" class="btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Terminal Modal -->
   <div id="terminalModal" class="terminal-modal hidden">
     <div class="terminal-modal-content">
@@ -296,21 +320,39 @@
         <div class="terminal-actions">
           <button id="terminalMinimize" class="terminal-btn" title="Minimize">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="5" y1="12" x2="19" y2="12"/>
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
           <button id="terminalClose" class="terminal-btn terminal-close-btn" title="Stop Session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
       </div>
       <div id="terminalContainer" class="terminal-body"></div>
       <div class="terminal-footer">
-        <span id="terminalInfo">Local port: --</span>
-        <span id="terminalSessionId">Session: --</span>
+        <div class="terminal-footer-left">
+          <span id="terminalInfo">Local port: --</span>
+          <button id="copyUrlBtn" class="terminal-copy-btn" title="Copy URL to clipboard">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+            <span>Copy URL</span>
+          </button>
+        </div>
+        <div class="terminal-footer-right">
+          <span id="sessionTimer" class="session-timer" title="Session time remaining">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span id="timerValue">10:00</span>
+          </span>
+          <span id="terminalSessionId">Session: --</span>
+        </div>
       </div>
     </div>
   </div>
@@ -320,4 +362,5 @@
 
   <script src="renderer.js"></script>
 </body>
+
 </html>
