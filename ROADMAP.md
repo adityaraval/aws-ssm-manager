@@ -40,6 +40,12 @@ This document outlines currently implemented features and potential improvements
 - [x] **Editable Local Port** - Customize local port for each connection
 - [x] **Toast Notifications** - Feedback for user actions
 - [x] **Active Connection Indicator** - Visual indicator for currently connected session
+- [x] **Connection Status Badge** - Green dot (connected), blue pulse (connecting), red dot (error) in sidebar
+- [x] **Connection Notes** - Optional notes textarea on connections, displayed in sidebar preview
+- [x] **Favorites** - Star toggle on connections with pinned "Favorites" section at top of sidebar
+- [x] **Recently Used** - "Recent" section showing last 5 used connections in sidebar
+- [x] **Open URL in Browser** - "Open" button in terminal footer to launch service URL in default browser
+- [x] **Keyboard Shortcuts** - Cmd+N (new), Cmd+S (save), Cmd+Enter (connect), Cmd+W (close), Cmd+K (search), Escape (close modals)
 
 ### Terminal & Session
 - [x] **Live Terminal Output** - Real-time AWS CLI output via xterm.js
@@ -59,6 +65,13 @@ This document outlines currently implemented features and potential improvements
 - [x] **Import Sanitization** - Validates and sanitizes imported connection files
 - [x] **Export Warning** - Security notice before exporting connection data
 - [x] **Environment Protection** - Minimal environment variables passed to child processes
+
+### UX Improvements
+- [x] **Onboarding Wizard** - First-run prerequisite checks for AWS CLI, SSM plugin, and credentials
+- [x] **Drag to Reorder** - Reorder connections within groups with visual feedback
+- [x] **Bulk Operations** - Multi-select with bulk delete, move to group, and export
+- [x] **Advanced Filters** - Filter by group, service type, region, and profile
+- [x] **Connection Sorting** - Sort by name, recently used, service type, or manual order
 
 ### Data Storage
 - [x] **Local Storage** - Connections, groups, and preferences stored in browser localStorage
@@ -101,160 +114,91 @@ This document outlines currently implemented features and potential improvements
 
 ---
 
-## Priority 2: Quick Wins
+## Priority 2: Advanced Features
 
-### 2.1 Connection Notes
-- [ ] Add optional "Notes" textarea field to connection form
-- [ ] Display notes in connection details or tooltip
-- [ ] Useful for documenting purpose, credentials location, etc.
-
-### 2.2 Favorites
-- [ ] Add star/favorite toggle on connections
-- [ ] Show favorites section at top of sidebar
-- [ ] Persist favorites in localStorage
-
-### 2.3 Recently Used
-- [ ] Track last 5-10 used connections with timestamps
-- [ ] Show "Recent" section in sidebar
-- [ ] Clear recent history option
-
-### 2.4 Keyboard Shortcuts
-- [ ] `Cmd/Ctrl+N` - New connection
-- [ ] `Cmd/Ctrl+S` - Save connection
-- [ ] `Cmd/Ctrl+Enter` - Start session
-- [ ] `Cmd/Ctrl+W` - Stop session
-- [ ] `Cmd/Ctrl+K` - Focus search
-- [ ] `Escape` - Close modals
-- [ ] Add keyboard shortcut hints in UI
-
-### 2.5 Open URL in Browser
-- [ ] Add "Open in Browser" button next to "Copy URL"
-- [ ] Use Electron's `shell.openExternal()` to open default browser
-- [ ] Only enable when session is connected
-
-### 2.6 Connection Status Badge
-- [ ] Show green dot indicator on active connection in sidebar
-- [ ] Pulse animation while connecting
-- [ ] Red dot on error state
-
----
-
-## Priority 3: Advanced Features
-
-### 3.1 System Tray Integration
+### 2.1 System Tray Integration
 - [ ] Minimize to system tray instead of closing
 - [ ] Tray icon shows connection status (connected/disconnected)
 - [ ] Right-click menu with recent connections for quick connect
 - [ ] Notification badge for active sessions
 
-### 3.2 Auto-Reconnect
+### 2.2 Auto-Reconnect
 - [ ] Option to automatically retry if session drops unexpectedly
 - [ ] Configurable retry attempts (1, 3, 5, unlimited)
 - [ ] Exponential backoff between retries
 - [ ] User notification on reconnect attempts
 
-### 3.3 Desktop Notifications
+### 2.3 Desktop Notifications
 - [ ] Notify when session is about to expire (1 min warning)
 - [ ] Notify when session disconnects unexpectedly
 - [ ] Notify on successful connection
 - [ ] Make notifications optional in settings
 
-### 3.4 Session History
+### 2.4 Session History
 - [ ] Log past sessions: connection name, start time, end time, duration, status
 - [ ] View history in a dedicated panel
 - [ ] Export history as CSV
 - [ ] Configurable retention (last 50, 100, or all)
 
-### 3.5 AWS Resource Discovery
+### 2.5 AWS Resource Discovery
 - [ ] Fetch EC2 instances for selected profile/region
 - [ ] Show instance picker dropdown with Name tag, instance ID, state
 - [ ] Discover RDS endpoints for Aurora connections
 - [ ] Discover ElastiCache endpoints
 - [ ] Requires additional IAM permissions (document in README)
 
-### 3.6 Connection Testing
+### 2.6 Connection Testing
 - [ ] After session starts, verify tunnel is working
 - [ ] Attempt TCP connection to remote host through tunnel
 - [ ] Show "Tunnel verified" or "Tunnel may not be working" status
 - [ ] Optional HTTP health check for web services
 
-### 3.7 SSH Tunnel Support
+### 2.7 SSH Tunnel Support
 - [ ] Alternative connection method using direct SSH
 - [ ] For environments without SSM agent
 - [ ] Support SSH key authentication
 - [ ] Support SSH through bastion host
 
----
-
-## Priority 4: UX Improvements
-
-### 4.1 Onboarding Wizard
-- [x] First-run experience to verify prerequisites
-- [x] Check AWS CLI installed and version
-- [x] Check Session Manager plugin installed
-- [x] Check AWS credentials configured
-- [x] Link to documentation for missing prerequisites
-
-### 4.2 Drag to Reorder Connections
-- [x] Allow reordering connections within a group
-- [x] Persist order in localStorage
-- [x] Visual feedback during drag
-
-### 4.3 Bulk Operations
-- [x] Multi-select connections with checkboxes
-- [x] Bulk delete selected connections
-- [x] Bulk move to group
-- [x] Bulk export selected connections
-
-### 4.4 Advanced Search & Filters
-- [x] Filter connections by group
-- [x] Filter by service type
-- [x] Filter by region
-- [x] Filter by profile
-- [ ] Save filter presets
-
-### 4.5 Connection Sorting
-- [x] Sort by name (A-Z, Z-A)
-- [x] Sort by recently used
-- [x] Sort by service type
-- [x] Remember sort preference
+### 2.8 Save Filter Presets
+- [ ] Save current filter/sort configuration as named presets
+- [ ] Quick-switch between saved filter presets
 
 ---
 
-## Priority 5: Code Quality & Technical Debt
+## Priority 3: Code Quality & Technical Debt
 
-### 5.1 Testing
+### 3.1 Testing
 - [ ] Set up Jest or Vitest for unit tests
 - [ ] Unit tests for validation functions
 - [ ] Unit tests for data sanitization
 - [ ] Integration tests for IPC handlers
 - [ ] E2E tests with Playwright or Spectron
 
-### 5.2 TypeScript Migration
+### 3.2 TypeScript Migration
 - [ ] Convert renderer.js to TypeScript
 - [ ] Convert main.js to TypeScript
 - [ ] Convert ssm-session.js to TypeScript
 - [ ] Add type definitions for IPC messages
 
-### 5.3 State Management
+### 3.3 State Management
 - [ ] Extract connection state to dedicated module
 - [ ] Extract group state to dedicated module
 - [ ] Extract session state to dedicated module
 - [ ] Consider using a simple store pattern
 
-### 5.4 Build System
+### 3.4 Build System
 - [ ] Replace CDN dependencies (Tailwind, DaisyUI) with local build
 - [ ] Set up Vite or Webpack for bundling
 - [ ] Minify CSS and JS for production
 - [ ] Tree-shaking for smaller bundle size
 
-### 5.5 Logging
+### 3.5 Logging
 - [ ] Add structured logging with levels (debug, info, warn, error)
 - [ ] Log to file for debugging (optional)
 - [ ] Include timestamps and context
 - [ ] Rotate log files
 
-### 5.6 Error Handling
+### 3.6 Error Handling
 - [ ] Centralized error handling
 - [ ] User-friendly error messages
 - [ ] Error reporting/feedback mechanism
@@ -268,7 +212,7 @@ When adding new feature requests, use this template:
 
 ```markdown
 ### Feature Name
-- **Priority**: P1/P2/P3/P4/P5
+- **Priority**: P1/P2/P3
 - **Effort**: Small/Medium/Large
 - **Description**: Brief description of the feature
 - **User Story**: As a user, I want to... so that...
@@ -284,5 +228,6 @@ When adding new feature requests, use this template:
 
 | Date | Change |
 |------|--------|
-| 2025-02-19 | Implemented Priority 4 UX improvements: onboarding wizard, drag-to-reorder, bulk operations, advanced filters, connection sorting |
+| 2025-02-19 | Implemented Quick Wins: connection notes, favorites, recently used, keyboard shortcuts, open URL in browser, connection status badges |
+| 2025-02-19 | Implemented UX improvements: onboarding wizard, drag-to-reorder, bulk operations, advanced filters, connection sorting |
 | 2025-02-18 | Initial roadmap created with implemented features and future enhancements |

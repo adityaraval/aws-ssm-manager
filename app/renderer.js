@@ -11,6 +11,7 @@ let filterPanelVisible = false;
 let bulkSelectMode = false;
 let selectedConnections = new Set();
 let isSessionActive = false;
+let connectionState = 'idle'; // idle | connecting | connected | error
 let activeConnectionName = null; // Track which connection is currently active
 let activeConnectionConfig = null; // Store the active connection config for URL generation
 let pendingDeleteConnection = null; // Track connection pending deletion
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadSavedConnections();
   setupEventListeners();
   setupTerminal();
+  setupKeyboardShortcuts();
   checkSessionStatus();
   initTheme();
   updateFilterDropdowns();
@@ -334,6 +336,62 @@ function renderGroupsWithConnections() {
 
   let html = '';
 
+  // Render Favorites section
+  const favoriteConnections = filtered.filter(c => c.favorite === true);
+  if (favoriteConnections.length > 0) {
+    const isFavCollapsed = collapsedGroups.has('__favorites__');
+    html += `
+      <div class="group-section ${isFavCollapsed ? 'collapsed' : ''}" data-group-id="__favorites__">
+        <div class="group-header favorites-header" data-group-id="__favorites__">
+          <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          <span class="group-color favorites-color">★</span>
+          <span class="group-name">Favorites</span>
+          <span class="group-count">${favoriteConnections.length}</span>
+        </div>
+        <div class="group-connections" data-group-id="__favorites__">
+          ${favoriteConnections.map(conn => {
+            const group = connectionGroups.find(g => g.id === conn.groupId);
+            return renderConnectionItem(conn, group);
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // Render Recently Used section
+  const recentConnections = filtered
+    .filter(c => c.lastUsedAt > 0)
+    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+    .slice(0, 5);
+  if (recentConnections.length > 0) {
+    const isRecentCollapsed = collapsedGroups.has('__recent__');
+    html += `
+      <div class="group-section ${isRecentCollapsed ? 'collapsed' : ''}" data-group-id="__recent__">
+        <div class="group-header recent-header" data-group-id="__recent__">
+          <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+          <span class="group-color recent-color">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </span>
+          <span class="group-name">Recent</span>
+          <span class="group-count">${recentConnections.length}</span>
+        </div>
+        <div class="group-connections" data-group-id="__recent__">
+          ${recentConnections.map(conn => {
+            const group = connectionGroups.find(g => g.id === conn.groupId);
+            return renderConnectionItem(conn, group);
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // Render each group with its connections
   connectionGroups.forEach(group => {
     const connections = groupedConnections.get(group.id) || [];
@@ -437,7 +495,16 @@ function attachGroupEventListeners(container) {
   container.querySelectorAll('.connection-item').forEach(item => {
     item.addEventListener('click', (e) => {
       if (e.target.classList.contains('connection-delete')) return;
+      if (e.target.classList.contains('connection-favorite')) return;
       loadConnection(item.dataset.name);
+    });
+  });
+
+  // Favorite buttons
+  container.querySelectorAll('.connection-favorite').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleFavorite(btn.dataset.name);
     });
   });
 
@@ -603,11 +670,12 @@ function updateGroupDropdown() {
 function loadSavedConnections() {
   const saved = localStorage.getItem('ssmConnections');
   savedConnections = saved ? JSON.parse(saved) : [];
-  // Ensure sortOrder and lastUsedAt fields exist on all connections
+  // Ensure sortOrder, lastUsedAt, favorite fields exist on all connections
   let needsSave = false;
   savedConnections.forEach((conn, idx) => {
     if (conn.sortOrder == null) { conn.sortOrder = idx; needsSave = true; }
     if (conn.lastUsedAt == null) { conn.lastUsedAt = 0; needsSave = true; }
+    if (conn.favorite == null) { conn.favorite = false; needsSave = true; }
   });
   if (needsSave) {
     localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
@@ -648,12 +716,15 @@ function saveConnection(config, showNotification = true) {
     // Preserve sortOrder and lastUsedAt if not set on new config
     if (config.sortOrder == null) config.sortOrder = savedConnections[existing].sortOrder || 0;
     if (config.lastUsedAt == null) config.lastUsedAt = savedConnections[existing].lastUsedAt || 0;
+    if (config.notes == null) config.notes = savedConnections[existing].notes || '';
+    if (config.favorite == null) config.favorite = savedConnections[existing].favorite || false;
     savedConnections[existing] = config;
   } else {
     // Assign sortOrder for new connections
     const maxOrder = savedConnections.reduce((max, c) => Math.max(max, c.sortOrder || 0), 0);
     if (config.sortOrder == null) config.sortOrder = maxOrder + 1;
     if (config.lastUsedAt == null) config.lastUsedAt = 0;
+    if (config.favorite == null) config.favorite = false;
     savedConnections.push(config);
   }
 
@@ -683,11 +754,20 @@ function renderConnectionItem(conn, group) {
     ? serviceConfig[conn.service].icon
     : 'images/AmazonOpenSearch.svg';
   const isActive = isSessionActive && activeConnectionName === conn.name;
+  const isConnecting = connectionState === 'connecting' && activeConnectionName === conn.name;
+  const isError = connectionState === 'error' && activeConnectionName === conn.name;
   const isSelected = editingConnectionName === conn.name;
   const activeClass = isActive ? 'active-session' : '';
   const selectedClass = isSelected ? 'selected' : '';
   const bulkClass = bulkSelectMode ? 'bulk-mode' : '';
-  const activeDot = isActive ? '<span class="connection-active-dot" title="Session active"></span>' : '';
+  let activeDot = '';
+  if (isConnecting) {
+    activeDot = '<span class="connection-connecting-dot" title="Connecting..."></span>';
+  } else if (isError) {
+    activeDot = '<span class="connection-error-dot" title="Connection error"></span>';
+  } else if (isActive) {
+    activeDot = '<span class="connection-active-dot" title="Session active"></span>';
+  }
   const draggable = bulkSelectMode ? 'false' : 'true';
   const isChecked = selectedConnections.has(conn.name) ? 'checked' : '';
 
@@ -698,6 +778,13 @@ function renderConnectionItem(conn, group) {
     </label>
   ` : '';
 
+  const notesLine = conn.notes
+    ? `<div class="connection-notes-preview">${escapeHtml(conn.notes.substring(0, 60))}${conn.notes.length > 60 ? '...' : ''}</div>`
+    : '';
+
+  const favoriteClass = conn.favorite ? 'active' : '';
+  const favoriteStar = conn.favorite ? '★' : '☆';
+
   return `
     <div class="connection-item ${activeClass} ${selectedClass} ${bulkClass}" data-name="${escapeHtml(conn.name)}" draggable="${draggable}" style="border-left-color: ${borderColor}">
       ${checkbox}
@@ -705,10 +792,22 @@ function renderConnectionItem(conn, group) {
       <div class="connection-info">
         <div class="connection-name">${activeDot}${escapeHtml(conn.name)}</div>
         <div class="connection-meta">${escapeHtml(conn.profile)} · ${escapeHtml(conn.region)}</div>
+        ${notesLine}
       </div>
+      <button class="connection-favorite ${favoriteClass}" data-name="${escapeHtml(conn.name)}" title="Favorite">${favoriteStar}</button>
       <button class="connection-delete" data-name="${escapeHtml(conn.name)}" title="Delete">×</button>
     </div>
   `;
+}
+
+// Toggle favorite status
+function toggleFavorite(name) {
+  const conn = savedConnections.find(c => c.name === name);
+  if (conn) {
+    conn.favorite = !conn.favorite;
+    localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+    renderGroupsWithConnections();
+  }
 }
 
 // Drag and Drop functionality
@@ -782,6 +881,9 @@ function loadConnection(name) {
     // Use saved local port if available, otherwise use default
     document.getElementById('localPort').value = conn.localPortNumber || serviceConfig[conn.service].localPort;
   }
+
+  // Populate notes
+  document.getElementById('connectionNotes').value = conn.notes || '';
 
   // Update form header to show edit mode
   updateFormHeader(conn.name);
@@ -1095,8 +1197,12 @@ function setupEventListeners() {
   // Copy URL button
   document.getElementById('copyUrlBtn').addEventListener('click', copyActiveUrl);
 
+  // Open URL button
+  document.getElementById('openUrlBtn').addEventListener('click', openActiveUrl);
+
   window.electronAPI.onSessionClosed((event, data) => {
     isSessionActive = false;
+    connectionState = 'idle';
     activeConnectionName = null;
     activeConnectionConfig = null;
     updateSessionButton();
@@ -1219,8 +1325,9 @@ function getConnectionConfig() {
   const host = document.getElementById('serviceHost').value.trim();
   const name = document.getElementById('connectionName').value.trim();
   const groupId = document.getElementById('connectionGroup').value || null;
+  const notes = document.getElementById('connectionNotes').value.trim();
 
-  return { profile, region, target, host, name, groupId };
+  return { profile, region, target, host, name, groupId, notes };
 }
 
 // Input validation patterns
@@ -1296,7 +1403,7 @@ function validateForm() {
 function handleSaveConnection() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId } = getConnectionConfig();
+  const { profile, region, target, host, name, groupId, notes } = getConnectionConfig();
 
   const config = {
     name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
@@ -1307,7 +1414,8 @@ function handleSaveConnection() {
     portNumber: document.getElementById('remotePort').value,
     localPortNumber: document.getElementById('localPort').value,
     region,
-    profile
+    profile,
+    notes
   };
 
   saveConnection(config);
@@ -1324,7 +1432,7 @@ async function handleSessionToggle() {
 async function startSession() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId } = getConnectionConfig();
+  const { profile, region, target, host, name, groupId, notes } = getConnectionConfig();
 
   const config = {
     name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
@@ -1335,7 +1443,8 @@ async function startSession() {
     portNumber: document.getElementById('remotePort').value,
     localPortNumber: document.getElementById('localPort').value,
     region,
-    profile
+    profile,
+    notes
   };
 
   const connectBtn = document.getElementById('connectBtn');
@@ -1344,6 +1453,11 @@ async function startSession() {
   connectBtn.disabled = true;
   saveBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
+
+  // Set connecting state and show in sidebar
+  connectionState = 'connecting';
+  activeConnectionName = config.name;
+  renderGroupsWithConnections();
 
   // Show terminal modal
   showTerminal(config);
@@ -1355,6 +1469,7 @@ async function startSession() {
 
   if (result.success) {
     isSessionActive = true;
+    connectionState = 'connected';
     activeConnectionName = config.name;
     activeConnectionConfig = config;
     updateSessionButton();
@@ -1367,9 +1482,12 @@ async function startSession() {
       document.getElementById('terminalSessionId').textContent = `Session: ${result.sessionId.substring(0, 20)}...`;
     }
   } else {
+    connectionState = 'error';
+    activeConnectionConfig = null;
     connectBtn.textContent = 'Start Session';
     showToast('Connection failed: ' + (result.error || 'Unknown error'), 'error');
     updateTerminalStatus('error');
+    renderGroupsWithConnections(); // Re-render to show error indicator
     if (terminal) {
       terminal.writeln(`\x1b[1;31m✗ Error: ${result.error || 'Unknown error'}\x1b[0m`);
     }
@@ -1392,6 +1510,7 @@ async function stopSession() {
 
   if (result.success) {
     isSessionActive = false;
+    connectionState = 'idle';
     activeConnectionName = null;
     activeConnectionConfig = null;
     updateSessionButton();
@@ -1572,6 +1691,32 @@ function copyActiveUrl() {
   });
 }
 
+// Open Active URL in browser
+function openActiveUrl() {
+  if (!activeConnectionConfig) {
+    showToast('No active session', 'error');
+    return;
+  }
+
+  const service = activeConnectionConfig.service;
+  const port = activeConnectionConfig.localPortNumber;
+  const config = serviceConfig[service];
+
+  if (!config || !config.urlTemplate) {
+    showToast('Could not generate URL', 'error');
+    return;
+  }
+
+  const url = config.urlTemplate(port);
+  window.electronAPI.openUrl(url).then((result) => {
+    if (result.success) {
+      showToast(`Opening: ${url}`, 'success');
+    } else {
+      showToast('Failed to open URL: ' + (result.error || 'Unknown error'), 'error');
+    }
+  });
+}
+
 // Theme Management
 function initTheme() {
   const savedTheme = localStorage.getItem('theme') || 'system';
@@ -1669,6 +1814,76 @@ async function importConnections() {
   } else {
     showToast(`Imported ${importCount} connections and ${groupCount} groups`, 'success');
   }
+}
+
+// Keyboard Shortcuts
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    const isMod = e.metaKey || e.ctrlKey;
+    const activeEl = document.activeElement;
+    const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+
+    // Escape — close topmost open modal (always works)
+    if (e.key === 'Escape') {
+      const modals = ['onboardingModal', 'bulkMoveModal', 'deleteModal', 'groupModal'];
+      for (const id of modals) {
+        const modal = document.getElementById(id);
+        if (modal && !modal.classList.contains('hidden')) {
+          modal.classList.add('hidden');
+          e.preventDefault();
+          return;
+        }
+      }
+      // Close terminal if visible
+      const terminalModal = document.getElementById('terminalModal');
+      if (terminalModal && !terminalModal.classList.contains('hidden')) {
+        terminalModal.classList.add('minimized');
+        e.preventDefault();
+        return;
+      }
+      return;
+    }
+
+    // Cmd/Ctrl+K — focus search (always works)
+    if (isMod && e.key === 'k') {
+      e.preventDefault();
+      document.getElementById('connectionSearch').focus();
+      return;
+    }
+
+    // Skip remaining shortcuts when input/textarea/select is focused
+    if (isInputFocused) return;
+
+    // Cmd/Ctrl+N — new connection
+    if (isMod && e.key === 'n') {
+      e.preventDefault();
+      resetForm();
+      return;
+    }
+
+    // Cmd/Ctrl+S — save connection
+    if (isMod && e.key === 's') {
+      e.preventDefault();
+      handleSaveConnection();
+      return;
+    }
+
+    // Cmd/Ctrl+Enter — start/stop session
+    if (isMod && e.key === 'Enter') {
+      e.preventDefault();
+      handleSessionToggle();
+      return;
+    }
+
+    // Cmd/Ctrl+W — close session/terminal
+    if (isMod && e.key === 'w') {
+      if (isSessionActive) {
+        e.preventDefault();
+        stopSession().then(() => hideTerminal());
+        return;
+      }
+    }
+  });
 }
 
 // Onboarding Wizard

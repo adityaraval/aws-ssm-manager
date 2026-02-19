@@ -54,7 +54,7 @@
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
           </svg>
-          <input type="text" id="connectionSearch" placeholder="Search..." class="search-input">
+          <input type="text" id="connectionSearch" placeholder="Search... (Cmd+K)" class="search-input">
         </div>
         <button id="filterToggle" class="toolbar-icon-btn" title="Filters">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -159,7 +159,7 @@
             <span class="footer-action-text">Export connections...</span>
           </button>
           <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary"
-            title="Create New Connection">
+            title="Create New Connection (Cmd+N)">
             <span class="footer-action-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <circle cx="12" cy="12" r="10" />
@@ -297,10 +297,16 @@
             </select>
           </div>
 
+          <!-- Notes -->
+          <div class="form-group">
+            <label>Notes <span class="label-hint">(optional)</span></label>
+            <textarea id="connectionNotes" class="form-input form-textarea" placeholder="Add notes about this connection..." rows="2" maxlength="500"></textarea>
+          </div>
+
           <!-- Actions -->
           <div class="form-actions">
-            <button type="button" id="saveBtn" class="btn-save">Save Connection</button>
-            <button type="submit" id="connectBtn" class="btn-connect">Start Session</button>
+            <button type="button" id="saveBtn" class="btn-save" title="Save Connection (Cmd+S)">Save Connection</button>
+            <button type="submit" id="connectBtn" class="btn-connect" title="Start Session (Cmd+Enter)">Start Session</button>
           </div>
         </form>
       </div>
@@ -436,6 +442,14 @@
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
             <span>Copy URL</span>
+          </button>
+          <button id="openUrlBtn" class="terminal-copy-btn" title="Open URL in browser">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            <span>Open</span>
           </button>
         </div>
         <div class="terminal-footer-right">

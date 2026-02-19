@@ -306,6 +306,20 @@ function sanitizeConnection(conn) {
     sanitized.lastUsedAt = 0;
   }
 
+  // Optional notes
+  if (typeof conn.notes === 'string' && conn.notes.length > 0) {
+    sanitized.notes = conn.notes.substring(0, 500);
+  } else {
+    sanitized.notes = '';
+  }
+
+  // Optional favorite
+  if (typeof conn.favorite === 'boolean') {
+    sanitized.favorite = conn.favorite;
+  } else {
+    sanitized.favorite = false;
+  }
+
   return sanitized;
 }
 
@@ -473,6 +487,27 @@ ipcMain.handle('check-prerequisites', async () => {
   }
 
   return result;
+});
+
+// Open connection URL in default browser (restricted to localhost)
+ipcMain.handle('open-url', async (event, url) => {
+  if (typeof url !== 'string') {
+    return { success: false, error: 'Invalid URL' };
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== 'localhost') {
+      return { success: false, error: 'Only localhost URLs are allowed' };
+    }
+    const allowedProtocols = ['http:', 'https:', 'redis:', 'postgresql:'];
+    if (!allowedProtocols.includes(parsed.protocol)) {
+      return { success: false, error: 'Protocol not allowed' };
+    }
+    await shell.openExternal(url);
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Invalid URL format' };
+  }
 });
 
 // Open external URLs (restricted to AWS docs)
