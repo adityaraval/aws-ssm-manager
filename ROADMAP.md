@@ -189,35 +189,35 @@ This document outlines currently implemented features and potential improvements
 ## Priority 4: UX Improvements
 
 ### 4.1 Onboarding Wizard
-- [ ] First-run experience to verify prerequisites
-- [ ] Check AWS CLI installed and version
-- [ ] Check Session Manager plugin installed
-- [ ] Check AWS credentials configured
-- [ ] Link to documentation for missing prerequisites
+- [x] First-run experience to verify prerequisites
+- [x] Check AWS CLI installed and version
+- [x] Check Session Manager plugin installed
+- [x] Check AWS credentials configured
+- [x] Link to documentation for missing prerequisites
 
 ### 4.2 Drag to Reorder Connections
-- [ ] Allow reordering connections within a group
-- [ ] Persist order in localStorage
-- [ ] Visual feedback during drag
+- [x] Allow reordering connections within a group
+- [x] Persist order in localStorage
+- [x] Visual feedback during drag
 
 ### 4.3 Bulk Operations
-- [ ] Multi-select connections with checkboxes
-- [ ] Bulk delete selected connections
-- [ ] Bulk move to group
-- [ ] Bulk export selected connections
+- [x] Multi-select connections with checkboxes
+- [x] Bulk delete selected connections
+- [x] Bulk move to group
+- [x] Bulk export selected connections
 
 ### 4.4 Advanced Search & Filters
-- [ ] Filter connections by group
-- [ ] Filter by service type
-- [ ] Filter by region
-- [ ] Filter by profile
+- [x] Filter connections by group
+- [x] Filter by service type
+- [x] Filter by region
+- [x] Filter by profile
 - [ ] Save filter presets
 
 ### 4.5 Connection Sorting
-- [ ] Sort by name (A-Z, Z-A)
-- [ ] Sort by recently used
-- [ ] Sort by service type
-- [ ] Remember sort preference
+- [x] Sort by name (A-Z, Z-A)
+- [x] Sort by recently used
+- [x] Sort by service type
+- [x] Remember sort preference
 
 ---
 
@@ -284,4 +284,5 @@ When adding new feature requests, use this template:
 
 | Date | Change |
 |------|--------|
+| 2025-02-19 | Implemented Priority 4 UX improvements: onboarding wizard, drag-to-reorder, bulk operations, advanced filters, connection sorting |
 | 2025-02-18 | Initial roadmap created with implemented features and future enhancements |

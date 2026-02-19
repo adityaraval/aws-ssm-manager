@@ -56,10 +56,84 @@
           </svg>
           <input type="text" id="connectionSearch" placeholder="Search..." class="search-input">
         </div>
+        <button id="filterToggle" class="toolbar-icon-btn" title="Filters">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+          </svg>
+          <span id="filterBadge" class="filter-badge hidden">0</span>
+        </button>
+        <button id="bulkSelectToggle" class="toolbar-icon-btn" title="Bulk Select">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 11 12 14 22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Filter Panel -->
+      <div id="filterPanel" class="filter-panel hidden">
+        <div class="filter-row">
+          <select id="filterGroup" class="filter-select" title="Filter by Group">
+            <option value="">All Groups</option>
+          </select>
+          <select id="filterService" class="filter-select" title="Filter by Service">
+            <option value="">All Services</option>
+            <option value="opensearch">OpenSearch</option>
+            <option value="aurora">Aurora</option>
+            <option value="elasticache">ElastiCache</option>
+            <option value="rabbitmq">Amazon MQ</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select id="filterRegion" class="filter-select" title="Filter by Region">
+            <option value="">All Regions</option>
+          </select>
+          <select id="filterProfile" class="filter-select" title="Filter by Profile">
+            <option value="">All Profiles</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <select id="sortSelect" class="filter-select" title="Sort connections">
+            <option value="name-asc">Sort: Name A-Z</option>
+            <option value="name-desc">Sort: Name Z-A</option>
+            <option value="recent">Sort: Recently Used</option>
+            <option value="service">Sort: Service Type</option>
+            <option value="manual">Sort: Manual Order</option>
+          </select>
+          <button id="clearFilters" class="filter-clear-btn">Clear Filters</button>
+        </div>
       </div>
 
       <div class="sidebar-content">
         <div id="connectionGroups" class="groups-list"></div>
+      </div>
+
+      <!-- Bulk Action Bar -->
+      <div id="bulkActionBar" class="bulk-action-bar hidden">
+        <div class="bulk-action-info">
+          <span id="bulkCount">0 selected</span>
+          <a href="#" id="bulkSelectAllLink" class="bulk-select-all-link">Select All</a>
+        </div>
+        <div class="bulk-action-buttons">
+          <button id="bulkMoveBtn" class="bulk-action-btn" title="Move to Group" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+          </button>
+          <button id="bulkExportBtn" class="bulk-action-btn" title="Export Selected" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+              <path d="M12 4v12"/>
+              <path d="M8 8l4-4 4 4"/>
+            </svg>
+          </button>
+          <button id="bulkDeleteBtn" class="bulk-action-btn bulk-action-delete" title="Delete Selected" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -308,6 +382,27 @@
     </div>
   </div>
 
+  <!-- Bulk Move Modal -->
+  <div id="bulkMoveModal" class="modal-overlay hidden">
+    <div class="modal-content modal-small">
+      <div class="modal-header">
+        <h3>Move to Group</h3>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Select Group</label>
+          <select id="bulkMoveGroup" class="form-select">
+            <option value="">No group (ungrouped)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="bulkMoveCancel" class="btn-secondary">Cancel</button>
+        <button id="bulkMoveConfirm" class="btn-primary">Move</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Terminal Modal -->
   <div id="terminalModal" class="terminal-modal hidden">
     <div class="terminal-modal-content">
@@ -353,6 +448,51 @@
           </span>
           <span id="terminalSessionId">Session: --</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding Modal -->
+  <div id="onboardingModal" class="modal-overlay hidden">
+    <div class="modal-content modal-onboarding">
+      <div class="modal-header">
+        <h3>Welcome to SSM Manager</h3>
+      </div>
+      <div class="modal-body">
+        <p class="onboarding-subtitle">Let's check your setup before getting started.</p>
+        <div class="onboarding-checks">
+          <div class="onboarding-check" id="checkAwsCli">
+            <div class="onboarding-status">
+              <span class="onboarding-spinner"></span>
+            </div>
+            <div class="onboarding-check-info">
+              <div class="onboarding-check-title">AWS CLI v2</div>
+              <div class="onboarding-check-detail">Checking...</div>
+            </div>
+          </div>
+          <div class="onboarding-check" id="checkSsmPlugin">
+            <div class="onboarding-status">
+              <span class="onboarding-spinner"></span>
+            </div>
+            <div class="onboarding-check-info">
+              <div class="onboarding-check-title">Session Manager Plugin</div>
+              <div class="onboarding-check-detail">Checking...</div>
+            </div>
+          </div>
+          <div class="onboarding-check" id="checkCredentials">
+            <div class="onboarding-status">
+              <span class="onboarding-spinner"></span>
+            </div>
+            <div class="onboarding-check-info">
+              <div class="onboarding-check-title">AWS Credentials</div>
+              <div class="onboarding-check-detail">Checking...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="onboardingRecheck" class="btn-secondary">Re-check</button>
+        <button id="onboardingDismiss" class="btn-primary">Get Started</button>
       </div>
     </div>
   </div>

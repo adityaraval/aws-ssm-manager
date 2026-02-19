@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, dialog, shell } = require('electron');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -291,6 +292,20 @@ function sanitizeConnection(conn) {
     sanitized.groupId = null;
   }
 
+  // Optional sortOrder
+  if (conn.sortOrder != null && typeof conn.sortOrder === 'number' && Number.isFinite(conn.sortOrder) && conn.sortOrder >= 0) {
+    sanitized.sortOrder = Math.floor(conn.sortOrder);
+  } else {
+    sanitized.sortOrder = 0;
+  }
+
+  // Optional lastUsedAt
+  if (conn.lastUsedAt != null && typeof conn.lastUsedAt === 'number' && Number.isFinite(conn.lastUsedAt) && conn.lastUsedAt >= 0) {
+    sanitized.lastUsedAt = Math.floor(conn.lastUsedAt);
+  } else {
+    sanitized.lastUsedAt = 0;
+  }
+
   return sanitized;
 }
 
@@ -397,4 +412,74 @@ ipcMain.handle('import-connections', async () => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// Check prerequisites for onboarding
+ipcMain.handle('check-prerequisites', async () => {
+  const result = {
+    awsCli: { installed: false, version: '' },
+    ssmPlugin: { installed: false },
+    credentials: { configured: false, profileCount: 0 }
+  };
+
+  // Check AWS CLI
+  try {
+    const awsVersion = await new Promise((resolve, reject) => {
+      execFile('aws', ['--version'], { timeout: 5000 }, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve((stdout || stderr || '').trim());
+      });
+    });
+    result.awsCli.installed = true;
+    result.awsCli.version = awsVersion;
+  } catch {
+    result.awsCli.installed = false;
+  }
+
+  // Check SSM Plugin
+  try {
+    await new Promise((resolve, reject) => {
+      execFile('session-manager-plugin', ['--version'], { timeout: 5000 }, (err, stdout) => {
+        if (err) return reject(err);
+        resolve((stdout || '').trim());
+      });
+    });
+    result.ssmPlugin.installed = true;
+  } catch {
+    result.ssmPlugin.installed = false;
+  }
+
+  // Check AWS credentials
+  try {
+    const configPath = path.join(os.homedir(), '.aws', 'config');
+    const credentialsPath = path.join(os.homedir(), '.aws', 'credentials');
+    const profiles = new Set();
+
+    if (fs.existsSync(configPath)) {
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const matches = content.matchAll(/\[(?:profile )?([^\]]+)\]/g);
+      for (const m of matches) profiles.add(m[1]);
+    }
+    if (fs.existsSync(credentialsPath)) {
+      const content = fs.readFileSync(credentialsPath, 'utf-8');
+      const matches = content.matchAll(/\[([^\]]+)\]/g);
+      for (const m of matches) profiles.add(m[1]);
+    }
+
+    result.credentials.profileCount = profiles.size;
+    result.credentials.configured = profiles.size > 0;
+  } catch {
+    result.credentials.configured = false;
+  }
+
+  return result;
+});
+
+// Open external URLs (restricted to AWS docs)
+ipcMain.handle('open-external', async (event, url) => {
+  if (typeof url === 'string' && url.startsWith('https://docs.aws.amazon.com/')) {
+    await shell.openExternal(url);
+    return { success: true };
+  }
+  return { success: false, error: 'URL not allowed' };
 });

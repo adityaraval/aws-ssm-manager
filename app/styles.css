@@ -145,6 +145,110 @@ body {
   margin-bottom: 0;
 }
 
+/* Toolbar Icon Buttons */
+.toolbar-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.toolbar-icon-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.toolbar-icon-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Filter Badge */
+.filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.filter-badge.hidden {
+  display: none;
+}
+
+/* Filter Panel */
+.filter-panel {
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-panel.hidden {
+  display: none;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+}
+
+.filter-select {
+  flex: 1;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.filter-clear-btn {
+  flex: 1;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-clear-btn:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
 
 /* Sidebar Content */
 .sidebar-content {
@@ -453,6 +557,14 @@ body {
   display: block;
 }
 
+.drop-indicator-line {
+  height: 2px;
+  background: var(--accent);
+  margin: 0 16px 0 40px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
 .connection-icon {
   font-size: 16px;
 }
@@ -561,6 +673,117 @@ body {
   font-size: 12px;
   text-align: center;
   padding: 30px 20px;
+}
+
+/* Bulk Operations */
+.bulk-action-bar {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary);
+}
+
+.bulk-action-bar.hidden {
+  display: none;
+}
+
+.bulk-action-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.bulk-select-all-link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.bulk-select-all-link:hover {
+  text-decoration: underline;
+}
+
+.bulk-action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.bulk-action-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bulk-action-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.bulk-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bulk-action-delete:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Bulk Checkbox */
+.bulk-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.bulk-check-input {
+  display: none;
+}
+
+.bulk-checkmark {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  background: var(--bg-primary);
+}
+
+.bulk-check-input:checked + .bulk-checkmark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.bulk-check-input:checked + .bulk-checkmark::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -2px;
+}
+
+.connection-item.bulk-mode {
+  cursor: pointer;
 }
 
 .sidebar-footer {
@@ -1356,4 +1579,104 @@ body {
 #terminalInfo,
 #terminalSessionId {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Onboarding Modal */
+.modal-onboarding {
+  width: 420px;
+}
+
+.onboarding-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.onboarding-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.onboarding-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.onboarding-check.pass {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.05);
+}
+
+.onboarding-check.fail {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.onboarding-status {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.onboarding-icon {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.onboarding-icon.pass {
+  color: #22c55e;
+}
+
+.onboarding-icon.fail {
+  color: #ef4444;
+}
+
+.onboarding-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: onboarding-spin 0.6s linear infinite;
+}
+
+@keyframes onboarding-spin {
+  to { transform: rotate(360deg); }
+}
+
+.onboarding-check-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-check-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.onboarding-check-detail {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.onboarding-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.onboarding-link:hover {
+  text-decoration: underline;
 }

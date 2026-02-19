@@ -5,6 +5,11 @@ let editingGroupId = null;
 let editingConnectionName = null; // Track the original name of connection being edited
 let searchTerm = '';
 let collapsedGroups = new Set();
+let sortPreference = localStorage.getItem('ssmSortPreference') || 'name-asc';
+let activeFilters = { group: '', service: '', region: '', profile: '' };
+let filterPanelVisible = false;
+let bulkSelectMode = false;
+let selectedConnections = new Set();
 let isSessionActive = false;
 let activeConnectionName = null; // Track which connection is currently active
 let activeConnectionConfig = null; // Store the active connection config for URL generation
@@ -64,6 +69,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupTerminal();
   checkSessionStatus();
   initTheme();
+  updateFilterDropdowns();
+  checkOnboarding();
 });
 
 // Terminal Management
@@ -293,6 +300,23 @@ function renderGroupsWithConnections() {
     });
   }
 
+  // Apply active filters
+  if (activeFilters.group) {
+    filtered = filtered.filter(conn => (conn.groupId || 'ungrouped') === activeFilters.group);
+  }
+  if (activeFilters.service) {
+    filtered = filtered.filter(conn => conn.service === activeFilters.service);
+  }
+  if (activeFilters.region) {
+    filtered = filtered.filter(conn => conn.region === activeFilters.region);
+  }
+  if (activeFilters.profile) {
+    filtered = filtered.filter(conn => conn.profile === activeFilters.profile);
+  }
+
+  // Apply sort preference
+  filtered = applySortPreference(filtered);
+
   // Group connections by groupId
   const groupedConnections = new Map();
   const ungroupedConnections = [];
@@ -424,12 +448,30 @@ function attachGroupEventListeners(container) {
     });
   });
 
+  // Bulk select checkboxes
+  container.querySelectorAll('.bulk-check-input').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const name = cb.dataset.name;
+      if (cb.checked) {
+        selectedConnections.add(name);
+      } else {
+        selectedConnections.delete(name);
+      }
+      updateBulkActionBar();
+    });
+  });
+
   // Drag and drop for connections
   let draggedConnection = null;
+  let draggedGroupId = null;
 
   container.querySelectorAll('.connection-item').forEach(item => {
+    if (bulkSelectMode) return; // Disable drag in bulk mode
+
     item.addEventListener('dragstart', (e) => {
       draggedConnection = item.dataset.name;
+      const conn = savedConnections.find(c => c.name === draggedConnection);
+      draggedGroupId = conn ? (conn.groupId || 'ungrouped') : 'ungrouped';
       item.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', item.dataset.name);
@@ -438,12 +480,72 @@ function attachGroupEventListeners(container) {
     item.addEventListener('dragend', () => {
       item.classList.remove('dragging');
       draggedConnection = null;
-      // Remove all drag-over states
+      draggedGroupId = null;
+      // Remove all drag-over states and drop indicators
       container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      container.querySelectorAll('.drop-indicator-line').forEach(el => el.remove());
+    });
+
+    // Reorder within group: dragover on connection items
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+
+      // Remove existing indicators
+      container.querySelectorAll('.drop-indicator-line').forEach(el => el.remove());
+
+      // Determine if dropping above or below
+      const rect = item.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const insertBefore = e.clientY < midY;
+
+      const indicator = document.createElement('div');
+      indicator.className = 'drop-indicator-line';
+      if (insertBefore) {
+        item.parentNode.insertBefore(indicator, item);
+      } else {
+        item.parentNode.insertBefore(indicator, item.nextSibling);
+      }
+    });
+
+    item.addEventListener('dragleave', (e) => {
+      if (!item.contains(e.relatedTarget)) {
+        // Don't remove indicators here — dragend handles cleanup
+      }
+    });
+
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      container.querySelectorAll('.drop-indicator-line').forEach(el => el.remove());
+      container.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+      const connectionName = e.dataTransfer.getData('text/plain');
+      if (!connectionName || connectionName === item.dataset.name) return;
+
+      const targetConn = savedConnections.find(c => c.name === item.dataset.name);
+      const draggedConn = savedConnections.find(c => c.name === connectionName);
+      if (!targetConn || !draggedConn) return;
+
+      const targetGroupId = targetConn.groupId || 'ungrouped';
+      const sourceGroupId = draggedConn.groupId || 'ungrouped';
+
+      const rect = item.getBoundingClientRect();
+      const insertBefore = e.clientY < rect.top + rect.height / 2;
+
+      if (sourceGroupId === targetGroupId) {
+        reorderConnection(connectionName, item.dataset.name, insertBefore);
+      } else {
+        // Move to different group, then reorder
+        moveConnectionToGroup(connectionName, targetGroupId);
+        // After move, reorder within the new group
+        reorderConnection(connectionName, item.dataset.name, insertBefore);
+      }
     });
   });
 
-  // Drop targets - group headers and group connections areas
+  // Drop targets - group headers and group connections areas (for moving between groups)
   container.querySelectorAll('.group-section').forEach(section => {
     const groupId = section.dataset.groupId;
     const header = section.querySelector('.group-header');
@@ -456,7 +558,6 @@ function attachGroupEventListeners(container) {
     };
 
     const handleDragLeave = (e) => {
-      // Only remove if leaving the section entirely
       if (!section.contains(e.relatedTarget)) {
         section.classList.remove('drag-over');
       }
@@ -465,6 +566,7 @@ function attachGroupEventListeners(container) {
     const handleDrop = (e) => {
       e.preventDefault();
       section.classList.remove('drag-over');
+      container.querySelectorAll('.drop-indicator-line').forEach(el => el.remove());
       const connectionName = e.dataTransfer.getData('text/plain');
       if (connectionName && groupId) {
         moveConnectionToGroup(connectionName, groupId);
@@ -501,7 +603,40 @@ function updateGroupDropdown() {
 function loadSavedConnections() {
   const saved = localStorage.getItem('ssmConnections');
   savedConnections = saved ? JSON.parse(saved) : [];
+  // Ensure sortOrder and lastUsedAt fields exist on all connections
+  let needsSave = false;
+  savedConnections.forEach((conn, idx) => {
+    if (conn.sortOrder == null) { conn.sortOrder = idx; needsSave = true; }
+    if (conn.lastUsedAt == null) { conn.lastUsedAt = 0; needsSave = true; }
+  });
+  if (needsSave) {
+    localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  }
   renderGroupsWithConnections();
+}
+
+function applySortPreference(connections) {
+  const sorted = [...connections];
+  switch (sortPreference) {
+    case 'name-asc':
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      break;
+    case 'name-desc':
+      sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+      break;
+    case 'recent':
+      sorted.sort((a, b) => (b.lastUsedAt || 0) - (a.lastUsedAt || 0));
+      break;
+    case 'service':
+      sorted.sort((a, b) => (a.service || '').localeCompare(b.service || ''));
+      break;
+    case 'manual':
+      sorted.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      break;
+    default:
+      sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }
+  return sorted;
 }
 
 function saveConnection(config, showNotification = true) {
@@ -510,8 +645,15 @@ function saveConnection(config, showNotification = true) {
   const existing = savedConnections.findIndex(c => c.name === lookupName);
 
   if (existing >= 0) {
+    // Preserve sortOrder and lastUsedAt if not set on new config
+    if (config.sortOrder == null) config.sortOrder = savedConnections[existing].sortOrder || 0;
+    if (config.lastUsedAt == null) config.lastUsedAt = savedConnections[existing].lastUsedAt || 0;
     savedConnections[existing] = config;
   } else {
+    // Assign sortOrder for new connections
+    const maxOrder = savedConnections.reduce((max, c) => Math.max(max, c.sortOrder || 0), 0);
+    if (config.sortOrder == null) config.sortOrder = maxOrder + 1;
+    if (config.lastUsedAt == null) config.lastUsedAt = 0;
     savedConnections.push(config);
   }
 
@@ -544,10 +686,21 @@ function renderConnectionItem(conn, group) {
   const isSelected = editingConnectionName === conn.name;
   const activeClass = isActive ? 'active-session' : '';
   const selectedClass = isSelected ? 'selected' : '';
+  const bulkClass = bulkSelectMode ? 'bulk-mode' : '';
   const activeDot = isActive ? '<span class="connection-active-dot" title="Session active"></span>' : '';
+  const draggable = bulkSelectMode ? 'false' : 'true';
+  const isChecked = selectedConnections.has(conn.name) ? 'checked' : '';
+
+  const checkbox = bulkSelectMode ? `
+    <label class="bulk-checkbox" onclick="event.stopPropagation()">
+      <input type="checkbox" class="bulk-check-input" data-name="${escapeHtml(conn.name)}" ${isChecked}>
+      <span class="bulk-checkmark"></span>
+    </label>
+  ` : '';
 
   return `
-    <div class="connection-item ${activeClass} ${selectedClass}" data-name="${escapeHtml(conn.name)}" draggable="true" style="border-left-color: ${borderColor}">
+    <div class="connection-item ${activeClass} ${selectedClass} ${bulkClass}" data-name="${escapeHtml(conn.name)}" draggable="${draggable}" style="border-left-color: ${borderColor}">
+      ${checkbox}
       <img src="${escapeHtml(iconSrc)}" alt="" class="connection-icon-img">
       <div class="connection-info">
         <div class="connection-name">${activeDot}${escapeHtml(conn.name)}</div>
@@ -568,9 +721,48 @@ function moveConnectionToGroup(connectionName, newGroupId) {
   }
 }
 
+function reorderConnection(draggedName, targetName, insertBefore) {
+  const draggedConn = savedConnections.find(c => c.name === draggedName);
+  const targetConn = savedConnections.find(c => c.name === targetName);
+  if (!draggedConn || !targetConn) return;
+
+  // Get all connections in the same group
+  const groupId = targetConn.groupId || null;
+  const groupConns = savedConnections.filter(c => (c.groupId || null) === groupId);
+  groupConns.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  // Remove dragged from list
+  const filtered = groupConns.filter(c => c.name !== draggedName);
+
+  // Find target index
+  const targetIdx = filtered.findIndex(c => c.name === targetName);
+  const insertIdx = insertBefore ? targetIdx : targetIdx + 1;
+
+  // Insert dragged at the correct position
+  filtered.splice(insertIdx, 0, draggedConn);
+
+  // Reassign sortOrder values
+  filtered.forEach((c, idx) => {
+    c.sortOrder = idx;
+  });
+
+  // Switch to manual sort
+  sortPreference = 'manual';
+  localStorage.setItem('ssmSortPreference', 'manual');
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) sortSelect.value = 'manual';
+
+  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  renderGroupsWithConnections();
+}
+
 function loadConnection(name) {
   const conn = savedConnections.find(c => c.name === name);
   if (!conn) return;
+
+  // Update last used timestamp
+  conn.lastUsedAt = Date.now();
+  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
 
   // Track the original name for editing
   editingConnectionName = conn.name;
@@ -615,6 +807,183 @@ function updateFormHeader(connectionName = null) {
     headerTitle.textContent = 'New Connection';
     headerDesc.textContent = 'Configure your AWS SSM port forwarding session';
   }
+}
+
+// Bulk Operations
+function toggleBulkSelectMode() {
+  bulkSelectMode = !bulkSelectMode;
+  selectedConnections.clear();
+  document.getElementById('bulkSelectToggle').classList.toggle('active', bulkSelectMode);
+  document.getElementById('bulkActionBar').classList.toggle('hidden', !bulkSelectMode);
+  updateBulkActionBar();
+  renderGroupsWithConnections();
+}
+
+function updateBulkActionBar() {
+  const countEl = document.getElementById('bulkCount');
+  if (countEl) {
+    countEl.textContent = `${selectedConnections.size} selected`;
+  }
+  const deleteBtn = document.getElementById('bulkDeleteBtn');
+  const moveBtn = document.getElementById('bulkMoveBtn');
+  const exportBtn = document.getElementById('bulkExportBtn');
+  const disabled = selectedConnections.size === 0;
+  if (deleteBtn) deleteBtn.disabled = disabled;
+  if (moveBtn) moveBtn.disabled = disabled;
+  if (exportBtn) exportBtn.disabled = disabled;
+}
+
+function bulkSelectAll() {
+  const allVisible = document.querySelectorAll('.bulk-check-input');
+  const allChecked = selectedConnections.size > 0 && selectedConnections.size === allVisible.length;
+
+  if (allChecked) {
+    selectedConnections.clear();
+  } else {
+    allVisible.forEach(cb => {
+      selectedConnections.add(cb.dataset.name);
+    });
+  }
+  renderGroupsWithConnections();
+  updateBulkActionBar();
+}
+
+function bulkDeleteSelected() {
+  if (selectedConnections.size === 0) return;
+  const count = selectedConnections.size;
+  if (!confirm(`Delete ${count} connection${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+  savedConnections = savedConnections.filter(c => !selectedConnections.has(c.name));
+  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  selectedConnections.clear();
+  updateBulkActionBar();
+  renderGroupsWithConnections();
+  updateFilterDropdowns();
+  showToast(`Deleted ${count} connection${count > 1 ? 's' : ''}`);
+}
+
+function openBulkMoveModal() {
+  if (selectedConnections.size === 0) return;
+  const modal = document.getElementById('bulkMoveModal');
+  const select = document.getElementById('bulkMoveGroup');
+  select.innerHTML = '<option value="">No group (ungrouped)</option>';
+  connectionGroups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.name;
+    select.appendChild(opt);
+  });
+  modal.classList.remove('hidden');
+}
+
+function confirmBulkMove() {
+  const groupId = document.getElementById('bulkMoveGroup').value || null;
+  savedConnections.forEach(c => {
+    if (selectedConnections.has(c.name)) {
+      c.groupId = groupId;
+    }
+  });
+  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  const count = selectedConnections.size;
+  selectedConnections.clear();
+  document.getElementById('bulkMoveModal').classList.add('hidden');
+  updateBulkActionBar();
+  renderGroupsWithConnections();
+  showToast(`Moved ${count} connection${count > 1 ? 's' : ''}`);
+}
+
+async function bulkExportSelected() {
+  if (selectedConnections.size === 0) return;
+  const conns = savedConnections.filter(c => selectedConnections.has(c.name));
+  // Include groups that are referenced by selected connections
+  const groupIds = new Set(conns.map(c => c.groupId).filter(Boolean));
+  const groups = connectionGroups.filter(g => groupIds.has(g.id));
+
+  const exportData = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    connections: conns,
+    groups: groups
+  };
+
+  const result = await window.electronAPI.exportConnections(exportData);
+  if (result.success) {
+    showToast(`Exported ${conns.length} connection${conns.length > 1 ? 's' : ''}`, 'success');
+  } else if (!result.canceled) {
+    showToast('Export failed: ' + (result.error || 'Unknown error'), 'error');
+  }
+}
+
+// Filter Management
+function updateFilterDropdowns() {
+  const regions = new Set();
+  const profiles = new Set();
+  savedConnections.forEach(conn => {
+    if (conn.region) regions.add(conn.region);
+    if (conn.profile) profiles.add(conn.profile);
+  });
+
+  const regionSelect = document.getElementById('filterRegion');
+  const profileSelect = document.getElementById('filterProfile');
+  const groupSelect = document.getElementById('filterGroup');
+
+  if (regionSelect) {
+    const val = regionSelect.value;
+    regionSelect.innerHTML = '<option value="">All Regions</option>';
+    [...regions].sort().forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      regionSelect.appendChild(opt);
+    });
+    regionSelect.value = val;
+  }
+
+  if (profileSelect) {
+    const val = profileSelect.value;
+    profileSelect.innerHTML = '<option value="">All Profiles</option>';
+    [...profiles].sort().forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      profileSelect.appendChild(opt);
+    });
+    profileSelect.value = val;
+  }
+
+  if (groupSelect) {
+    const val = groupSelect.value;
+    groupSelect.innerHTML = '<option value="">All Groups</option>';
+    connectionGroups.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.name;
+      groupSelect.appendChild(opt);
+    });
+    const ungroupedOpt = document.createElement('option');
+    ungroupedOpt.value = 'ungrouped';
+    ungroupedOpt.textContent = 'Ungrouped';
+    groupSelect.appendChild(ungroupedOpt);
+    groupSelect.value = val;
+  }
+}
+
+function updateFilterBadge() {
+  const badge = document.getElementById('filterBadge');
+  if (!badge) return;
+  const count = Object.values(activeFilters).filter(v => v !== '').length;
+  badge.textContent = count;
+  badge.classList.toggle('hidden', count === 0);
+}
+
+function clearAllFilters() {
+  activeFilters = { group: '', service: '', region: '', profile: '' };
+  document.getElementById('filterGroup').value = '';
+  document.getElementById('filterService').value = '';
+  document.getElementById('filterRegion').value = '';
+  document.getElementById('filterProfile').value = '';
+  updateFilterBadge();
+  renderGroupsWithConnections();
 }
 
 // Event Listeners
@@ -662,6 +1031,54 @@ function setupEventListeners() {
     searchTerm = e.target.value.toLowerCase().trim();
     renderGroupsWithConnections();
   });
+
+  // Bulk select toggle
+  document.getElementById('bulkSelectToggle').addEventListener('click', toggleBulkSelectMode);
+  document.getElementById('bulkSelectAllLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    bulkSelectAll();
+  });
+  document.getElementById('bulkDeleteBtn').addEventListener('click', bulkDeleteSelected);
+  document.getElementById('bulkMoveBtn').addEventListener('click', openBulkMoveModal);
+  document.getElementById('bulkExportBtn').addEventListener('click', bulkExportSelected);
+  document.getElementById('bulkMoveConfirm').addEventListener('click', confirmBulkMove);
+  document.getElementById('bulkMoveCancel').addEventListener('click', () => {
+    document.getElementById('bulkMoveModal').classList.add('hidden');
+  });
+  document.getElementById('bulkMoveModal').addEventListener('click', (e) => {
+    if (e.target.id === 'bulkMoveModal') document.getElementById('bulkMoveModal').classList.add('hidden');
+  });
+
+  // Filter toggle
+  document.getElementById('filterToggle').addEventListener('click', () => {
+    filterPanelVisible = !filterPanelVisible;
+    document.getElementById('filterPanel').classList.toggle('hidden', !filterPanelVisible);
+    document.getElementById('filterToggle').classList.toggle('active', filterPanelVisible);
+  });
+
+  // Filter selects
+  ['filterGroup', 'filterService', 'filterRegion', 'filterProfile'].forEach(id => {
+    const key = id.replace('filter', '').toLowerCase();
+    document.getElementById(id).addEventListener('change', (e) => {
+      activeFilters[key] = e.target.value;
+      updateFilterBadge();
+      renderGroupsWithConnections();
+    });
+  });
+
+  // Clear filters
+  document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
+
+  // Sort select
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.value = sortPreference;
+    sortSelect.addEventListener('change', (e) => {
+      sortPreference = e.target.value;
+      localStorage.setItem('ssmSortPreference', sortPreference);
+      renderGroupsWithConnections();
+    });
+  }
 
   // Export/Import buttons
   document.getElementById('exportBtn').addEventListener('click', exportConnections);
@@ -1251,5 +1668,100 @@ async function importConnections() {
     showToast(`Imported ${importCount} connections. ${warnings}`, 'info');
   } else {
     showToast(`Imported ${importCount} connections and ${groupCount} groups`, 'success');
+  }
+}
+
+// Onboarding Wizard
+function checkOnboarding() {
+  if (localStorage.getItem('ssmOnboardingComplete') === 'true') return;
+  showOnboardingModal();
+}
+
+function showOnboardingModal() {
+  const modal = document.getElementById('onboardingModal');
+  modal.classList.remove('hidden');
+
+  document.getElementById('onboardingDismiss').addEventListener('click', () => {
+    localStorage.setItem('ssmOnboardingComplete', 'true');
+    modal.classList.add('hidden');
+  });
+
+  document.getElementById('onboardingRecheck').addEventListener('click', () => {
+    runPrerequisiteChecks();
+  });
+
+  modal.addEventListener('click', (e) => {
+    // Don't close on backdrop click — user should explicitly dismiss
+  });
+
+  runPrerequisiteChecks();
+}
+
+async function runPrerequisiteChecks() {
+  // Reset all checks to loading state
+  const checks = [
+    { id: 'checkAwsCli', title: 'AWS CLI v2' },
+    { id: 'checkSsmPlugin', title: 'Session Manager Plugin' },
+    { id: 'checkCredentials', title: 'AWS Credentials' }
+  ];
+
+  checks.forEach(check => {
+    const el = document.getElementById(check.id);
+    el.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-spinner"></span>';
+    el.querySelector('.onboarding-check-detail').textContent = 'Checking...';
+    el.className = 'onboarding-check';
+  });
+
+  const result = await window.electronAPI.checkPrerequisites();
+
+  // AWS CLI
+  const awsEl = document.getElementById('checkAwsCli');
+  if (result.awsCli.installed) {
+    awsEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon pass">&#10003;</span>';
+    awsEl.querySelector('.onboarding-check-detail').textContent = result.awsCli.version || 'Installed';
+    awsEl.classList.add('pass');
+  } else {
+    awsEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon fail">&#10007;</span>';
+    awsEl.querySelector('.onboarding-check-detail').innerHTML =
+      'Not found. <a class="onboarding-link" data-url="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">Install Guide</a>';
+    awsEl.classList.add('fail');
+    awsEl.querySelector('.onboarding-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.electronAPI.openExternal(e.target.dataset.url);
+    });
+  }
+
+  // SSM Plugin
+  const ssmEl = document.getElementById('checkSsmPlugin');
+  if (result.ssmPlugin.installed) {
+    ssmEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon pass">&#10003;</span>';
+    ssmEl.querySelector('.onboarding-check-detail').textContent = 'Installed';
+    ssmEl.classList.add('pass');
+  } else {
+    ssmEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon fail">&#10007;</span>';
+    ssmEl.querySelector('.onboarding-check-detail').innerHTML =
+      'Not found. <a class="onboarding-link" data-url="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html">Install Guide</a>';
+    ssmEl.classList.add('fail');
+    ssmEl.querySelector('.onboarding-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.electronAPI.openExternal(e.target.dataset.url);
+    });
+  }
+
+  // Credentials
+  const credEl = document.getElementById('checkCredentials');
+  if (result.credentials.configured) {
+    credEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon pass">&#10003;</span>';
+    credEl.querySelector('.onboarding-check-detail').textContent = `${result.credentials.profileCount} profile${result.credentials.profileCount !== 1 ? 's' : ''} found`;
+    credEl.classList.add('pass');
+  } else {
+    credEl.querySelector('.onboarding-status').innerHTML = '<span class="onboarding-icon fail">&#10007;</span>';
+    credEl.querySelector('.onboarding-check-detail').innerHTML =
+      'No profiles found. <a class="onboarding-link" data-url="https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html">Configure Guide</a>';
+    credEl.classList.add('fail');
+    credEl.querySelector('.onboarding-link')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.electronAPI.openExternal(e.target.dataset.url);
+    });
   }
 }

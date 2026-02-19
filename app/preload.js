@@ -14,7 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeTerminalListeners: () => {
     ipcRenderer.removeAllListeners('terminal-output');
     ipcRenderer.removeAllListeners('session-status');
-  }
+  },
+  checkPrerequisites: () => ipcRenderer.invoke('check-prerequisites'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url)
 });
 
 // Expose dark mode APIs
