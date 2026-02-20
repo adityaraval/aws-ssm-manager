@@ -95,8 +95,8 @@ This document outlines currently implemented features and potential improvements
 - [ ] Import/export should include custom service definitions
 
 ### 1.3 Sidebar Smart Sections
-- [ ] Re-introduce optional "Favorites" section in sidebar
-- [ ] Re-introduce optional "Recent" section (last used connections)
+- [ ] Introduce optional "Favorites" section in sidebar
+- [ ] Introduce optional "Recent" section (last used connections)
 - [ ] Add setting to show/hide smart sections while keeping groups-only as default
 
 ### 1.4 Configurable Session Timeout (Enhancements)
