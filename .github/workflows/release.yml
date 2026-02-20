@@ -47,7 +47,7 @@ jobs:
 
       - name: Build release artifacts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: npm run ${{ matrix.build_script }} -- --publish never
 
       - name: Upload platform artifacts
