@@ -46,7 +46,9 @@ jobs:
         run: npm ci
 
       - name: Build release artifacts
-        run: npm run ${{ matrix.build_script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run ${{ matrix.build_script }} -- --publish never
 
       - name: Upload platform artifacts
         uses: actions/upload-artifact@v4
