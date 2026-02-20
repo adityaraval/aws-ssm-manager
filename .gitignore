@@ -2,3 +2,17 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Test artifacts
+app/test-results/
+app/playwright-report/
+coverage/
+
+# Local environment files
+.env
+.env.*
+
+# Potentially sensitive key/cert files
+*.pem
+*.key
+*.p12
