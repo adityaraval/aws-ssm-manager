@@ -157,6 +157,40 @@ Download the latest release for your platform:
 
 Latest release: https://github.com/adityaraval/aws-ssm-manager/releases/latest
 
+### macOS: "Damaged and can't be opened" error
+
+macOS may show this error when launching for the first time. This is a Gatekeeper quarantine issue — not actual damage to the file.
+
+**Why this happens:** When you download an app via a browser, macOS attaches a `com.apple.quarantine` flag to it. If the app isn't notarized with Apple (which requires a paid Apple Developer account), Gatekeeper blocks it with this message instead of letting you choose to open it anyway. The app itself is completely intact.
+
+**Fix:**
+```bash
+xattr -cr "/Applications/AWS SSM Manager.app"
+```
+
+This removes the quarantine flag. It does not disable Gatekeeper system-wide or change any security settings — it only tells macOS that you've reviewed and trust this specific app.
+
+**Why you can trust this app:**
+- The full source code is publicly available at https://github.com/adityaraval/aws-ssm-manager — you can read every line before running it
+- It is MIT licensed with no obfuscated or minified code
+- It makes no outbound network calls of its own — all traffic goes directly through the AWS CLI you already have installed
+- It stores data only in your browser's `localStorage` — no servers, no telemetry, no analytics
+- SHA-256 checksums are published alongside every release so you can verify the download hasn't been tampered with
+
+**Prefer to verify the checksum first?**
+```bash
+# Download the checksum file from the release page, then:
+shasum -a 256 -c checksums.txt
+```
+
+**Prefer to build from source?**
+```bash
+git clone https://github.com/adityaraval/aws-ssm-manager.git
+cd aws-ssm-manager/app
+npm install
+npm run build:mac
+```
+
 ## Usage
 
 1. **Select your AWS profile** from the dropdown
