@@ -5,6 +5,9 @@ A beautiful, cross-platform desktop app for AWS SSM port forwarding. Connect to 
 ![AWS SSM Manager](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+- Website: https://adityaraval.github.io/aws-ssm-manager/
+- Releases: https://github.com/adityaraval/aws-ssm-manager/releases/latest
+
 ## Prerequisites
 
 Before using AWS SSM Manager, ensure you have the following installed and configured:
@@ -142,7 +145,7 @@ The target EC2 instance (bastion host) must have:
 - **Quick Search**: Find connections with fuzzy search
 - **Export & Import**: Backup and share configurations
 - **Live Terminal**: Watch session output in real-time
-- **Session Timer**: 10-minute auto-timeout with countdown display
+- **Configurable Session Timeout**: 5/10/15/30 minutes or no timeout with countdown display
 
 ## Installation
 
@@ -151,6 +154,8 @@ Download the latest release for your platform:
 - **macOS**: `.dmg` (Intel & Apple Silicon)
 - **Windows**: `.exe` installer
 - **Linux**: `.AppImage` or `.deb`
+
+Latest release: https://github.com/adityaraval/aws-ssm-manager/releases/latest
 
 ## Usage
 
@@ -163,7 +168,7 @@ Download the latest release for your platform:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/aws-ssm-manager.git
+git clone https://github.com/adityaraval/aws-ssm-manager.git
 cd aws-ssm-manager
 
 # Install dependencies

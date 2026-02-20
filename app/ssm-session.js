@@ -42,7 +42,13 @@ class SSMSession {
     this.process = null;
     this.isConnected = false;
     this.sessionTimeout = null;
-    this.sessionDuration = config.sessionTimeout || DEFAULT_SESSION_TIMEOUT;
+    if (config.sessionTimeout === null) {
+      this.sessionDuration = null;
+    } else if (typeof config.sessionTimeout === 'number' && config.sessionTimeout > 0) {
+      this.sessionDuration = config.sessionTimeout;
+    } else {
+      this.sessionDuration = DEFAULT_SESSION_TIMEOUT;
+    }
   }
 
   log(message, type = 'info') {
@@ -90,7 +96,11 @@ class SSMSession {
       this.log(`Target: ${this.config.target}`);
       this.log(`Host: ${this.config.host}`);
       this.log(`Port: ${this.config.portNumber} → localhost:${this.config.localPortNumber}`);
-      this.log(`Session timeout: ${this.sessionDuration / 60000} minutes`);
+      this.log(
+        this.sessionDuration === null
+          ? 'Session timeout: disabled'
+          : `Session timeout: ${this.sessionDuration / 60000} minutes`
+      );
 
       // Build AWS CLI arguments
       const args = [
@@ -226,6 +236,11 @@ class SSMSession {
 
   startSessionTimeout() {
     this.clearSessionTimeout();
+
+    if (this.sessionDuration === null) {
+      this.log('Session timeout disabled; session will stay active until stopped', 'info');
+      return;
+    }
 
     const timeoutMinutes = this.sessionDuration / 60000;
     this.log(`Session will auto-close in ${timeoutMinutes} minutes`, 'info');

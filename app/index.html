@@ -5,8 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AWS SSM Manager</title>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet" type="text/css" />
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="styles.css">
   <!-- Load xterm.js (browser library) -->
@@ -294,6 +292,18 @@
               <option value="eu-west-3">Europe (Paris)</option>
               <option value="eu-north-1">Europe (Stockholm)</option>
               <option value="sa-east-1">South America (São Paulo)</option>
+            </select>
+          </div>
+
+          <!-- Session Timeout -->
+          <div class="form-group">
+            <label>Session Timeout</label>
+            <select id="sessionTimeout" class="form-select">
+              <option value="5">5 minutes</option>
+              <option value="10" selected>10 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="none">No timeout</option>
             </select>
           </div>
 

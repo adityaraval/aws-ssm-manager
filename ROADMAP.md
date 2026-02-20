@@ -12,6 +12,7 @@ This document outlines currently implemented features and potential improvements
 - [x] **AWS Profile Support** - Read and select from `~/.aws/config` and `~/.aws/credentials`
 - [x] **Profile Refresh** - Reload AWS profiles without restarting the app
 - [x] **Session Management** - Start and stop SSM sessions with process cleanup
+- [x] **Port Conflict Detection** - Checks local port availability before session start with clear conflict errors
 - [x] **Cross-Platform** - Works on macOS, Windows, and Linux
 
 ### Supported Services
@@ -23,6 +24,7 @@ This document outlines currently implemented features and potential improvements
 ### Connection Management
 - [x] **Save Connections** - Persist connection configurations locally
 - [x] **Edit Connections** - Modify existing saved connections
+- [x] **Duplicate Connections** - Create connection copies for quick variations
 - [x] **Delete Connections** - Remove connections with confirmation dialog
 - [x] **Connection Groups** - Organize connections into color-coded groups
 - [x] **Drag & Drop** - Move connections between groups by dragging
@@ -32,7 +34,7 @@ This document outlines currently implemented features and potential improvements
 - [x] **Import/Export** - Backup and restore connections as JSON files
 
 ### User Interface
-- [x] **Modern UI** - Clean interface with Tailwind CSS and DaisyUI
+- [x] **Modern UI** - Clean desktop interface with local CSS (no CDN dependency)
 - [x] **Dark Mode** - Light, dark, and system theme options
 - [x] **Sidebar Navigation** - Browse connections and groups in sidebar
 - [x] **Connection Form** - Configure all connection parameters
@@ -51,8 +53,8 @@ This document outlines currently implemented features and potential improvements
 - [x] **Live Terminal Output** - Real-time AWS CLI output via xterm.js
 - [x] **Terminal Modal** - Floating terminal window with minimize option
 - [x] **Session Status** - Visual status indicator (connecting, connected, error, disconnected)
-- [x] **Session Timer** - 10-minute countdown with visual warnings (3 min, 1 min)
-- [x] **Auto-Timeout** - Sessions automatically close after 10 minutes
+- [x] **Configurable Session Timeout** - 5/10/15/30 minutes or no timeout (per connection with global default)
+- [x] **Session Timer** - Countdown warnings for timed sessions and "No timeout" display for unlimited sessions
 - [x] **Copy URL** - One-click copy service URL to clipboard
 - [x] **Session Info Display** - Shows local port and session ID
 
@@ -85,7 +87,6 @@ This document outlines currently implemented features and potential improvements
 ## Priority 1: High Value Features
 
 ### 1.1 Port Conflict Detection
-- [ ] Check if local port is already in use before starting session
 - [ ] Show clear error message with the process using the port
 - [ ] Suggest next available port
 
@@ -95,14 +96,7 @@ This document outlines currently implemented features and potential improvements
 - [ ] Store custom services in localStorage or separate config file
 - [ ] Import/export should include custom service definitions
 
-### 1.3 Duplicate Connection
-- [ ] Add "Duplicate" button/menu item for connections
-- [ ] Pre-fill form with copied values and append "(Copy)" to name
-- [ ] Quick way to create variations of existing connections
-
-### 1.4 Configurable Session Timeout
-- [ ] Add timeout selector: 5, 10, 15, 30 minutes, or "No timeout"
-- [ ] Per-connection setting with global default
+### 1.4 Configurable Session Timeout (Enhancements)
 - [ ] Warning notification at 1 minute remaining
 - [ ] Option to extend session before it expires
 
@@ -187,7 +181,6 @@ This document outlines currently implemented features and potential improvements
 - [ ] Consider using a simple store pattern
 
 ### 3.4 Build System
-- [ ] Replace CDN dependencies (Tailwind, DaisyUI) with local build
 - [ ] Set up Vite or Webpack for bundling
 - [ ] Minify CSS and JS for production
 - [ ] Tree-shaking for smaller bundle size

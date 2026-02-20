@@ -18,6 +18,10 @@ let pendingDeleteConnection = null; // Track connection pending deletion
 let terminal = null;
 let fitAddon = null;
 
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 10;
+const NO_TIMEOUT_VALUE = 'none';
+const DEFAULT_TIMEOUT_STORAGE_KEY = 'ssmDefaultSessionTimeout';
+
 // HTML escape function to prevent XSS attacks
 function escapeHtml(str) {
   if (str == null) return '';
@@ -28,7 +32,7 @@ function escapeHtml(str) {
 
 // Session timer
 let sessionStartTime = null;
-let sessionDuration = 10 * 60 * 1000; // 10 minutes default
+let sessionDuration = DEFAULT_SESSION_TIMEOUT_MINUTES * 60 * 1000;
 let timerInterval = null;
 
 const serviceConfig = {
@@ -63,6 +67,7 @@ const serviceConfig = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initializeSessionTimeout();
   await loadProfiles();
   loadGroups();
   loadSavedConnections();
@@ -496,6 +501,7 @@ function attachGroupEventListeners(container) {
     item.addEventListener('click', (e) => {
       if (e.target.classList.contains('connection-delete')) return;
       if (e.target.classList.contains('connection-favorite')) return;
+      if (e.target.classList.contains('connection-duplicate')) return;
       loadConnection(item.dataset.name);
     });
   });
@@ -512,6 +518,13 @@ function attachGroupEventListeners(container) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       openDeleteModal(btn.dataset.name);
+    });
+  });
+
+  container.querySelectorAll('.connection-duplicate').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      duplicateConnection(btn.dataset.name);
     });
   });
 
@@ -666,6 +679,54 @@ function updateGroupDropdown() {
   });
 }
 
+function sanitizeTimeoutSelection(value) {
+  const stringValue = String(value || DEFAULT_SESSION_TIMEOUT_MINUTES);
+  if (stringValue === NO_TIMEOUT_VALUE) return NO_TIMEOUT_VALUE;
+  const minutes = Number.parseInt(stringValue, 10);
+  if ([5, 10, 15, 30].includes(minutes)) {
+    return String(minutes);
+  }
+  return String(DEFAULT_SESSION_TIMEOUT_MINUTES);
+}
+
+function getSelectedSessionTimeoutValue() {
+  const select = document.getElementById('sessionTimeout');
+  return sanitizeTimeoutSelection(select ? select.value : DEFAULT_SESSION_TIMEOUT_MINUTES);
+}
+
+function getSelectedSessionTimeoutMinutes() {
+  const timeoutValue = getSelectedSessionTimeoutValue();
+  if (timeoutValue === NO_TIMEOUT_VALUE) return null;
+  return Number.parseInt(timeoutValue, 10);
+}
+
+function updateSessionTimerDefaultDisplay() {
+  if (isSessionActive) return;
+  const timerValue = document.getElementById('timerValue');
+  const timerContainer = document.getElementById('sessionTimer');
+  if (!timerValue || !timerContainer) return;
+
+  const timeoutValue = getSelectedSessionTimeoutValue();
+  timerContainer.classList.remove('warning', 'danger');
+  if (timeoutValue === NO_TIMEOUT_VALUE) {
+    timerValue.textContent = 'No timeout';
+    return;
+  }
+
+  const minutes = Number.parseInt(timeoutValue, 10);
+  timerValue.textContent = `${minutes}:00`;
+}
+
+function initializeSessionTimeout() {
+  const select = document.getElementById('sessionTimeout');
+  if (!select) return;
+  const savedDefault = localStorage.getItem(DEFAULT_TIMEOUT_STORAGE_KEY);
+  const timeoutValue = sanitizeTimeoutSelection(savedDefault);
+  select.value = timeoutValue;
+  localStorage.setItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
+  updateSessionTimerDefaultDisplay();
+}
+
 // Connection Management
 function loadSavedConnections() {
   const saved = localStorage.getItem('ssmConnections');
@@ -676,6 +737,15 @@ function loadSavedConnections() {
     if (conn.sortOrder == null) { conn.sortOrder = idx; needsSave = true; }
     if (conn.lastUsedAt == null) { conn.lastUsedAt = 0; needsSave = true; }
     if (conn.favorite == null) { conn.favorite = false; needsSave = true; }
+    if (conn.sessionTimeoutMinutes !== null && conn.sessionTimeoutMinutes !== undefined) {
+      const parsedTimeout = Number.parseInt(conn.sessionTimeoutMinutes, 10);
+      if (![5, 10, 15, 30].includes(parsedTimeout)) {
+        conn.sessionTimeoutMinutes = DEFAULT_SESSION_TIMEOUT_MINUTES;
+        needsSave = true;
+      } else {
+        conn.sessionTimeoutMinutes = parsedTimeout;
+      }
+    }
   });
   if (needsSave) {
     localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
@@ -718,6 +788,9 @@ function saveConnection(config, showNotification = true) {
     if (config.lastUsedAt == null) config.lastUsedAt = savedConnections[existing].lastUsedAt || 0;
     if (config.notes == null) config.notes = savedConnections[existing].notes || '';
     if (config.favorite == null) config.favorite = savedConnections[existing].favorite || false;
+    if (config.sessionTimeoutMinutes === undefined) {
+      config.sessionTimeoutMinutes = savedConnections[existing].sessionTimeoutMinutes ?? DEFAULT_SESSION_TIMEOUT_MINUTES;
+    }
     savedConnections[existing] = config;
   } else {
     // Assign sortOrder for new connections
@@ -725,6 +798,9 @@ function saveConnection(config, showNotification = true) {
     if (config.sortOrder == null) config.sortOrder = maxOrder + 1;
     if (config.lastUsedAt == null) config.lastUsedAt = 0;
     if (config.favorite == null) config.favorite = false;
+    if (config.sessionTimeoutMinutes === undefined) {
+      config.sessionTimeoutMinutes = DEFAULT_SESSION_TIMEOUT_MINUTES;
+    }
     savedConnections.push(config);
   }
 
@@ -743,6 +819,38 @@ function deleteConnection(name) {
   savedConnections = savedConnections.filter(c => c.name !== name);
   localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
+}
+
+function getDuplicateConnectionName(baseName) {
+  const trimmed = (baseName || '').trim() || 'Connection';
+  const copyBase = `${trimmed} (Copy)`;
+  const existingNames = new Set(savedConnections.map(c => c.name));
+  if (!existingNames.has(copyBase)) {
+    return copyBase;
+  }
+
+  let index = 2;
+  while (existingNames.has(`${trimmed} (Copy ${index})`)) {
+    index++;
+  }
+  return `${trimmed} (Copy ${index})`;
+}
+
+function duplicateConnection(name) {
+  const source = savedConnections.find(c => c.name === name);
+  if (!source) return;
+
+  const duplicated = {
+    ...source,
+    name: getDuplicateConnectionName(source.name),
+    lastUsedAt: 0,
+    favorite: false
+  };
+
+  editingConnectionName = null;
+  saveConnection(duplicated, false);
+  loadConnection(duplicated.name);
+  showToast(`Duplicated: ${duplicated.name}`, 'success');
 }
 
 function renderConnectionItem(conn, group) {
@@ -795,6 +903,7 @@ function renderConnectionItem(conn, group) {
         ${notesLine}
       </div>
       <button class="connection-favorite ${favoriteClass}" data-name="${escapeHtml(conn.name)}" title="Favorite">${favoriteStar}</button>
+      <button class="connection-duplicate" data-name="${escapeHtml(conn.name)}" title="Duplicate">⧉</button>
       <button class="connection-delete" data-name="${escapeHtml(conn.name)}" title="Delete">×</button>
     </div>
   `;
@@ -884,6 +993,14 @@ function loadConnection(name) {
 
   // Populate notes
   document.getElementById('connectionNotes').value = conn.notes || '';
+  const sessionTimeout = document.getElementById('sessionTimeout');
+  if (sessionTimeout) {
+    const timeoutValue = conn.sessionTimeoutMinutes == null
+      ? sanitizeTimeoutSelection(localStorage.getItem(DEFAULT_TIMEOUT_STORAGE_KEY))
+      : sanitizeTimeoutSelection(conn.sessionTimeoutMinutes);
+    sessionTimeout.value = timeoutValue;
+  }
+  updateSessionTimerDefaultDisplay();
 
   // Update form header to show edit mode
   updateFormHeader(conn.name);
@@ -1104,6 +1221,15 @@ function setupEventListeners() {
     });
   });
 
+  const timeoutSelect = document.getElementById('sessionTimeout');
+  if (timeoutSelect) {
+    timeoutSelect.addEventListener('change', () => {
+      const timeoutValue = getSelectedSessionTimeoutValue();
+      localStorage.setItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
+      updateSessionTimerDefaultDisplay();
+    });
+  }
+
   // Save Connection button
   document.getElementById('saveBtn').addEventListener('click', () => {
     handleSaveConnection();
@@ -1308,6 +1434,12 @@ function resetForm() {
     document.getElementById('localPort').value = config.localPort;
   }
 
+  const sessionTimeout = document.getElementById('sessionTimeout');
+  if (sessionTimeout) {
+    sessionTimeout.value = sanitizeTimeoutSelection(localStorage.getItem(DEFAULT_TIMEOUT_STORAGE_KEY));
+  }
+  updateSessionTimerDefaultDisplay();
+
   // Reset form header to "New Connection"
   updateFormHeader(null);
 
@@ -1326,8 +1458,9 @@ function getConnectionConfig() {
   const name = document.getElementById('connectionName').value.trim();
   const groupId = document.getElementById('connectionGroup').value || null;
   const notes = document.getElementById('connectionNotes').value.trim();
+  const sessionTimeoutMinutes = getSelectedSessionTimeoutMinutes();
 
-  return { profile, region, target, host, name, groupId, notes };
+  return { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes };
 }
 
 // Input validation patterns
@@ -1403,7 +1536,7 @@ function validateForm() {
 function handleSaveConnection() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId, notes } = getConnectionConfig();
+  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes } = getConnectionConfig();
 
   const config = {
     name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
@@ -1415,7 +1548,8 @@ function handleSaveConnection() {
     localPortNumber: document.getElementById('localPort').value,
     region,
     profile,
-    notes
+    notes,
+    sessionTimeoutMinutes
   };
 
   saveConnection(config);
@@ -1432,7 +1566,7 @@ async function handleSessionToggle() {
 async function startSession() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId, notes } = getConnectionConfig();
+  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes } = getConnectionConfig();
 
   const config = {
     name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
@@ -1444,7 +1578,8 @@ async function startSession() {
     localPortNumber: document.getElementById('localPort').value,
     region,
     profile,
-    notes
+    notes,
+    sessionTimeoutMinutes
   };
 
   const connectBtn = document.getElementById('connectBtn');
@@ -1461,6 +1596,10 @@ async function startSession() {
 
   // Show terminal modal
   showTerminal(config);
+
+  sessionDuration = config.sessionTimeoutMinutes == null
+    ? null
+    : config.sessionTimeoutMinutes * 60 * 1000;
 
   const result = await window.electronAPI.startSSMSession(config);
 
@@ -1586,6 +1725,10 @@ function startSessionTimer() {
   sessionStartTime = Date.now();
   updateTimerDisplay();
 
+  if (sessionDuration == null) {
+    return;
+  }
+
   // Update timer every second
   timerInterval = setInterval(() => {
     updateTimerDisplay();
@@ -1598,27 +1741,26 @@ function stopSessionTimer() {
     timerInterval = null;
   }
   sessionStartTime = null;
-
-  // Reset timer display
-  const timerValue = document.getElementById('timerValue');
-  const timerContainer = document.getElementById('sessionTimer');
-  if (timerValue) timerValue.textContent = '10:00';
-  if (timerContainer) {
-    timerContainer.classList.remove('warning', 'danger');
-  }
+  updateSessionTimerDefaultDisplay();
 }
 
 function updateTimerDisplay() {
   if (!sessionStartTime) return;
+
+  const timerValue = document.getElementById('timerValue');
+  const timerContainer = document.getElementById('sessionTimer');
+
+  if (sessionDuration == null) {
+    if (timerValue) timerValue.textContent = 'No timeout';
+    if (timerContainer) timerContainer.classList.remove('warning', 'danger');
+    return;
+  }
 
   const elapsed = Date.now() - sessionStartTime;
   const remaining = Math.max(0, sessionDuration - elapsed);
 
   const minutes = Math.floor(remaining / 60000);
   const seconds = Math.floor((remaining % 60000) / 1000);
-
-  const timerValue = document.getElementById('timerValue');
-  const timerContainer = document.getElementById('sessionTimer');
 
   if (timerValue) {
     timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;

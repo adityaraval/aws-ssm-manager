@@ -750,6 +750,28 @@ body {
   font-size: 16px;
 }
 
+.connection-duplicate {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.connection-item:hover .connection-duplicate {
+  opacity: 1;
+}
+
+.connection-duplicate:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
 .connection-item:hover .connection-delete {
   opacity: 1;
 }

@@ -47,6 +47,7 @@ async function fillConnectionForm(page, {
   host = 'test-host.us-east-1.es.amazonaws.com',
   region = 'us-east-1',
   localPort = '5601',
+  sessionTimeout = null,
   notes = '',
   group = '',
 } = {}) {
@@ -63,6 +64,9 @@ async function fillConnectionForm(page, {
   await page.selectOption('#region', region);
   if (localPort) {
     await page.fill('#localPort', localPort);
+  }
+  if (sessionTimeout != null) {
+    await page.selectOption('#sessionTimeout', String(sessionTimeout));
   }
   if (notes) {
     await page.fill('#connectionNotes', notes);

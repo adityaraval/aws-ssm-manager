@@ -9,6 +9,7 @@
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
+    "test:unit": "node --test tests/unit/**/*.test.js",
     "test:e2e": "npx playwright test"
   },
   "keywords": [

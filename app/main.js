@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { SSMSession } = require('./ssm-session');
+const { checkLocalPortAvailability, normalizePortError } = require('./port-utils');
 
 let mainWindow;
 let currentSession = null;
@@ -220,7 +221,18 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     return { success: false, error: 'A session is already active' };
   }
 
-  const { target, portNumber, localPortNumber, host, region, profile } = config;
+  const { target, portNumber, localPortNumber, host, region, profile, sessionTimeoutMinutes } = config;
+  const parsedTimeoutMinutes = Number.parseInt(sessionTimeoutMinutes, 10);
+  const sessionTimeout = sessionTimeoutMinutes == null
+    ? null
+    : (Number.isInteger(parsedTimeoutMinutes) && parsedTimeoutMinutes > 0
+      ? parsedTimeoutMinutes * 60 * 1000
+      : null);
+
+  const localPortCheck = await checkLocalPortAvailability(localPortNumber);
+  if (!localPortCheck.available) {
+    return { success: false, error: localPortCheck.error };
+  }
 
   // Callback to send terminal output to renderer
   const onOutput = (text) => {
@@ -246,12 +258,14 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     localPortNumber,
     host,
     region,
-    profile
+    profile,
+    sessionTimeout
   }, onOutput, onStatus);
 
   const result = await currentSession.start();
 
   if (!result.success) {
+    result.error = normalizePortError(result.error, localPortNumber);
     currentSession = null;
   }
 
@@ -437,6 +451,18 @@ function sanitizeConnection(conn) {
     sanitized.favorite = conn.favorite;
   } else {
     sanitized.favorite = false;
+  }
+
+  // Optional session timeout (minutes), allow 5/10/15/30 or null (no timeout)
+  if (conn.sessionTimeoutMinutes === null) {
+    sanitized.sessionTimeoutMinutes = null;
+  } else {
+    const timeoutMinutes = parseInt(conn.sessionTimeoutMinutes, 10);
+    if ([5, 10, 15, 30].includes(timeoutMinutes)) {
+      sanitized.sessionTimeoutMinutes = timeoutMinutes;
+    } else {
+      sanitized.sessionTimeoutMinutes = 10;
+    }
   }
 
   return sanitized;
