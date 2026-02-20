@@ -64,6 +64,125 @@ app.on('activate', () => {
   }
 });
 
+const isE2ETest = process.env.E2E_TEST === '1';
+
+if (isE2ETest) {
+  // --- Mock IPC handlers for E2E testing ---
+  let mockSessionActive = false;
+
+  ipcMain.handle('get-profiles', async () => {
+    return { success: true, profiles: ['dev', 'staging', 'prod'] };
+  });
+
+  ipcMain.handle('start-ssm-session', async (event, config) => {
+    mockSessionActive = true;
+    // Send fake terminal output and status after a short delay
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('session-status', 'connecting');
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('terminal-output', 'Starting session with SessionId: test-session-123\r\n');
+            mainWindow.webContents.send('session-status', 'connected');
+          }
+        }, 100);
+      }
+    }, 50);
+    return { success: true, sessionId: 'test-session-123' };
+  });
+
+  ipcMain.handle('stop-ssm-session', async () => {
+    mockSessionActive = false;
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('session-status', 'disconnected');
+        mainWindow.webContents.send('session-closed', { code: 0 });
+      }
+    }, 50);
+    return { success: true };
+  });
+
+  ipcMain.handle('check-session-status', async () => {
+    return { active: mockSessionActive, sessionId: mockSessionActive ? 'test-session-123' : null };
+  });
+
+  ipcMain.handle('check-prerequisites', async () => {
+    return {
+      awsCli: { installed: true, version: 'aws-cli/2.0.0 Python/3.9.0 Darwin/21.0.0 source/x86_64' },
+      ssmPlugin: { installed: true },
+      credentials: { configured: true, profileCount: 3 }
+    };
+  });
+
+  ipcMain.handle('export-connections', async (event, data) => {
+    // Write to a temp file without showing a dialog
+    const tmpPath = path.join(os.tmpdir(), 'ssm-e2e-export.json');
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    return { success: true, filePath: tmpPath };
+  });
+
+  ipcMain.handle('import-connections', async () => {
+    // Read from the temp export file if it exists, otherwise return test data
+    const tmpPath = path.join(os.tmpdir(), 'ssm-e2e-import.json');
+    if (fs.existsSync(tmpPath)) {
+      const content = fs.readFileSync(tmpPath, 'utf-8');
+      const data = JSON.parse(content);
+      return { success: true, data: { connections: data.connections || [], groups: data.groups || [] }, warnings: null };
+    }
+    return {
+      success: true,
+      data: {
+        connections: [{
+          name: 'Imported Connection',
+          service: 'opensearch',
+          target: 'i-0abc123def4567890',
+          host: 'imported.us-east-1.es.amazonaws.com',
+          region: 'us-east-1',
+          profile: 'dev',
+          portNumber: '443',
+          localPortNumber: '5601',
+          groupId: null,
+          sortOrder: 0,
+          lastUsedAt: 0,
+          notes: '',
+          favorite: false
+        }],
+        groups: []
+      },
+      warnings: null
+    };
+  });
+
+  ipcMain.handle('open-url', async () => {
+    return { success: true };
+  });
+
+  ipcMain.handle('open-external', async () => {
+    return { success: true };
+  });
+
+  // Dark mode handlers still work normally in test mode
+  ipcMain.handle('dark-mode:toggle', () => {
+    if (nativeTheme.shouldUseDarkColors) {
+      nativeTheme.themeSource = 'light';
+    } else {
+      nativeTheme.themeSource = 'dark';
+    }
+    return nativeTheme.shouldUseDarkColors;
+  });
+
+  ipcMain.handle('dark-mode:set', (event, mode) => {
+    nativeTheme.themeSource = mode;
+    return nativeTheme.shouldUseDarkColors;
+  });
+
+  ipcMain.handle('dark-mode:get', () => {
+    return nativeTheme.shouldUseDarkColors;
+  });
+
+} else {
+  // --- Real IPC handlers (production) ---
+
 ipcMain.handle('get-profiles', async () => {
   const configPath = path.join(os.homedir(), '.aws', 'config');
   const credentialsPath = path.join(os.homedir(), '.aws', 'credentials');
@@ -518,3 +637,5 @@ ipcMain.handle('open-external', async (event, url) => {
   }
   return { success: false, error: 'URL not allowed' };
 });
+
+} // end else (production handlers)

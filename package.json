@@ -10,7 +10,8 @@
     "app:build:win": "cd app && npm run build:win",
     "app:build:linux": "cd app && npm run build:linux",
     "app:install": "cd app && npm install",
-    "website:dev": "cd website && npx serve ."
+    "website:dev": "cd website && npx serve .",
+    "app:test": "cd app && npm run test:e2e"
   },
   "keywords": [
     "aws",
