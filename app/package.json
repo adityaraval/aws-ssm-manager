@@ -2,6 +2,11 @@
   "name": "aws-ssm-manager",
   "version": "1.0.0",
   "description": "Cross-platform AWS SSM Session Manager Desktop App",
+  "homepage": "https://github.com/adityaraval/aws-ssm-manager",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adityaraval/aws-ssm-manager.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -21,7 +26,10 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "",
+  "author": {
+    "name": "Aditya Raval",
+    "email": "adityaraval@users.noreply.github.com"
+  },
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-ssm": "^3.705.0",
@@ -55,7 +63,8 @@
         "AppImage",
         "deb"
       ],
-      "icon": "images"
+      "icon": "images",
+      "maintainer": "Aditya Raval <adityaraval@users.noreply.github.com>"
     },
     "directories": {
       "output": "../dist"
