@@ -5,7 +5,7 @@ A beautiful, cross-platform desktop app for AWS SSM port forwarding. Connect to 
 ![AWS SSM Manager](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-- Website: https://adityaraval.github.io/aws-ssm-manager/
+- Website: https://aws-ssm-manager.netlify.app
 - Releases: https://github.com/adityaraval/aws-ssm-manager/releases/latest
 
 ## Prerequisites

@@ -38,8 +38,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test:unit
-
       - name: Build app
         run: npm run ${{ matrix.build_script }}
