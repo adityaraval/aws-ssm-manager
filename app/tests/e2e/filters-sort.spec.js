@@ -21,7 +21,7 @@ test.describe('Filters and Sort', () => {
     await page.fill('#connectionSearch', 'Aurora');
 
     // Only Aurora connection should be visible
-    const visible = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    const visible = page.locator('.connection-item:visible');
     await expect(visible).toHaveCount(1);
     await expect(visible.first()).toHaveAttribute('data-name', 'Aurora EU');
   });
@@ -34,7 +34,7 @@ test.describe('Filters and Sort', () => {
     // Filter by elasticache
     await page.selectOption('#filterService', 'elasticache');
 
-    const visible = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    const visible = page.locator('.connection-item:visible');
     await expect(visible).toHaveCount(1);
     await expect(visible.first()).toHaveAttribute('data-name', 'Redis US');
   });
@@ -45,13 +45,13 @@ test.describe('Filters and Sort', () => {
 
     // Sort A-Z (default)
     await page.selectOption('#sortSelect', 'name-asc');
-    let items = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    let items = page.locator('.connection-item:visible');
     const namesAsc = await items.evaluateAll(els => els.map(el => el.getAttribute('data-name')));
     expect(namesAsc).toEqual(['Aurora EU', 'OpenSearch US', 'Redis US']);
 
     // Sort Z-A
     await page.selectOption('#sortSelect', 'name-desc');
-    items = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    items = page.locator('.connection-item:visible');
     const namesDesc = await items.evaluateAll(els => els.map(el => el.getAttribute('data-name')));
     expect(namesDesc).toEqual(['Redis US', 'OpenSearch US', 'Aurora EU']);
   });
@@ -61,13 +61,13 @@ test.describe('Filters and Sort', () => {
     await page.click('#filterToggle');
     await page.selectOption('#filterService', 'opensearch');
 
-    let visible = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    let visible = page.locator('.connection-item:visible');
     await expect(visible).toHaveCount(1);
 
     // Clear filters
     await page.click('#clearFilters');
 
-    visible = page.locator('.group-connections[data-group-id="ungrouped"] .connection-item');
+    visible = page.locator('.connection-item:visible');
     await expect(visible).toHaveCount(3);
   });
 

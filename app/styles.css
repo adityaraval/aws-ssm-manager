@@ -483,8 +483,8 @@ body {
 .connection-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px 8px 40px;
+  gap: 8px;
+  padding: 6px 14px 6px 36px;
   cursor: pointer;
   transition: background 0.15s;
   border-left: 3px solid transparent;
@@ -579,6 +579,7 @@ body {
 .connection-info {
   flex: 1;
   min-width: 0;
+  line-height: 1.25;
 }
 
 .connection-name {
@@ -587,9 +588,15 @@ body {
   gap: 6px;
   font-weight: 500;
   color: var(--text-primary);
+  min-width: 0;
+}
+
+.connection-name-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 /* Active Connection Indicator */
@@ -664,8 +671,9 @@ body {
 }
 
 .connection-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
+  margin-top: 1px;
 }
 
 .connection-notes-preview {
@@ -676,6 +684,12 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 1px;
+  display: none;
+}
+
+.connection-item:hover .connection-notes-preview,
+.connection-item.selected .connection-notes-preview {
+  display: block;
 }
 
 /* Favorite Button */

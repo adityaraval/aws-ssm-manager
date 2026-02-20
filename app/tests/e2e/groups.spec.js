@@ -37,8 +37,12 @@ test.describe('Groups', () => {
     await page.fill('#groupName', 'Dev');
     await page.click('#saveGroup');
 
-    // Click the edit button
-    await page.click('.group-edit');
+    // Click the target group's edit button
+    const devGroupSection = page.locator('.group-section').filter({
+      has: page.locator('.group-name', { hasText: 'Dev' })
+    });
+    const devGroupId = await devGroupSection.getAttribute('data-group-id');
+    await page.click(`.group-edit[data-id="${devGroupId}"]`);
 
     // Modal should show edit mode
     await expect(page.locator('#modalTitle')).toHaveText('Edit Group');
@@ -53,7 +57,7 @@ test.describe('Groups', () => {
     await expect(page.locator('.group-name', { hasText: 'Dev' }).first()).toHaveText('Development');
   });
 
-  test('should delete a group and ungrouped connections remain', async ({ page }) => {
+  test('should delete a group and connections are reassigned', async ({ page }) => {
     // Create a group
     await page.click('#addGroupBtn');
     await page.fill('#groupName', 'To Delete Group');
@@ -72,7 +76,7 @@ test.describe('Groups', () => {
     // Group header should be gone
     await expect(page.locator('.group-name', { hasText: 'To Delete Group' })).toHaveCount(0);
 
-    // Connection should still exist (now ungrouped)
+    // Connection should still exist (reassigned to another group)
     await expect(page.locator('.connection-item[data-name="Grouped Conn"]')).toBeVisible();
   });
 

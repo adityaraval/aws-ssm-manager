@@ -21,6 +21,8 @@ let fitAddon = null;
 const DEFAULT_SESSION_TIMEOUT_MINUTES = 10;
 const NO_TIMEOUT_VALUE = 'none';
 const DEFAULT_TIMEOUT_STORAGE_KEY = 'ssmDefaultSessionTimeout';
+const DEFAULT_GROUP_NAME = 'General';
+const DEFAULT_GROUP_COLOR = '#6b7280';
 
 // HTML escape function to prevent XSS attacks
 function escapeHtml(str) {
@@ -223,12 +225,32 @@ async function loadProfiles() {
 }
 
 // Group Management
+function ensureDefaultGroupId() {
+  let defaultGroup = connectionGroups.find(group => group.name === DEFAULT_GROUP_NAME);
+  if (!defaultGroup) {
+    defaultGroup = {
+      id: `group-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: DEFAULT_GROUP_NAME,
+      color: DEFAULT_GROUP_COLOR
+    };
+    connectionGroups.push(defaultGroup);
+    localStorage.setItem('ssmGroups', JSON.stringify(connectionGroups));
+  }
+  return defaultGroup.id;
+}
+
 function loadGroups() {
   const saved = localStorage.getItem('ssmGroups');
   connectionGroups = saved ? JSON.parse(saved) : [];
+  ensureDefaultGroupId();
 
   const savedCollapsed = localStorage.getItem('ssmCollapsedGroups');
-  collapsedGroups = savedCollapsed ? new Set(JSON.parse(savedCollapsed)) : new Set();
+  if (savedCollapsed) {
+    collapsedGroups = new Set(JSON.parse(savedCollapsed));
+  } else {
+    collapsedGroups = new Set();
+    saveCollapsedState();
+  }
 
   renderGroupsWithConnections();
   updateGroupDropdown();
@@ -271,9 +293,12 @@ function updateGroup(id, newName, newColor) {
 
 function deleteGroup(id) {
   connectionGroups = connectionGroups.filter(g => g.id !== id);
+  const fallbackGroupId = connectionGroups.length > 0
+    ? connectionGroups[0].id
+    : ensureDefaultGroupId();
   savedConnections = savedConnections.map(c => {
     if (c.groupId === id) {
-      return { ...c, groupId: null };
+      return { ...c, groupId: fallbackGroupId };
     }
     return c;
   });
@@ -309,7 +334,7 @@ function renderGroupsWithConnections() {
 
   // Apply active filters
   if (activeFilters.group) {
-    filtered = filtered.filter(conn => (conn.groupId || 'ungrouped') === activeFilters.group);
+    filtered = filtered.filter(conn => conn.groupId === activeFilters.group);
   }
   if (activeFilters.service) {
     filtered = filtered.filter(conn => conn.service === activeFilters.service);
@@ -324,78 +349,18 @@ function renderGroupsWithConnections() {
   // Apply sort preference
   filtered = applySortPreference(filtered);
 
-  // Group connections by groupId
-  const groupedConnections = new Map();
-  const ungroupedConnections = [];
+  let html = '';
 
+  // Groups-only layout (no Favorites/Recent/Ungrouped sections).
+  const groupedConnections = new Map();
   filtered.forEach(conn => {
     if (conn.groupId) {
       if (!groupedConnections.has(conn.groupId)) {
         groupedConnections.set(conn.groupId, []);
       }
       groupedConnections.get(conn.groupId).push(conn);
-    } else {
-      ungroupedConnections.push(conn);
     }
   });
-
-  let html = '';
-
-  // Render Favorites section
-  const favoriteConnections = filtered.filter(c => c.favorite === true);
-  if (favoriteConnections.length > 0) {
-    const isFavCollapsed = collapsedGroups.has('__favorites__');
-    html += `
-      <div class="group-section ${isFavCollapsed ? 'collapsed' : ''}" data-group-id="__favorites__">
-        <div class="group-header favorites-header" data-group-id="__favorites__">
-          <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-          <span class="group-color favorites-color">★</span>
-          <span class="group-name">Favorites</span>
-          <span class="group-count">${favoriteConnections.length}</span>
-        </div>
-        <div class="group-connections" data-group-id="__favorites__">
-          ${favoriteConnections.map(conn => {
-            const group = connectionGroups.find(g => g.id === conn.groupId);
-            return renderConnectionItem(conn, group);
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  // Render Recently Used section
-  const recentConnections = filtered
-    .filter(c => c.lastUsedAt > 0)
-    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
-    .slice(0, 5);
-  if (recentConnections.length > 0) {
-    const isRecentCollapsed = collapsedGroups.has('__recent__');
-    html += `
-      <div class="group-section ${isRecentCollapsed ? 'collapsed' : ''}" data-group-id="__recent__">
-        <div class="group-header recent-header" data-group-id="__recent__">
-          <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-          <span class="group-color recent-color">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </span>
-          <span class="group-name">Recent</span>
-          <span class="group-count">${recentConnections.length}</span>
-        </div>
-        <div class="group-connections" data-group-id="__recent__">
-          ${recentConnections.map(conn => {
-            const group = connectionGroups.find(g => g.id === conn.groupId);
-            return renderConnectionItem(conn, group);
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
 
   // Render each group with its connections
   connectionGroups.forEach(group => {
@@ -427,24 +392,8 @@ function renderGroupsWithConnections() {
     `;
   });
 
-  // Render ungrouped connections
-  if (ungroupedConnections.length > 0 || connectionGroups.length === 0) {
-    html += `
-      <div class="group-section ungrouped-section" data-group-id="ungrouped">
-        ${connectionGroups.length > 0 ? `
-          <div class="group-header ungrouped-header">
-            <span class="group-chevron-placeholder"></span>
-            <span class="group-color ungrouped-color"></span>
-            <span class="group-name ungrouped-name">Ungrouped</span>
-            <span class="group-count">${ungroupedConnections.length}</span>
-          </div>
-        ` : ''}
-        <div class="group-connections" data-group-id="ungrouped">
-          ${ungroupedConnections.map(conn => renderConnectionItem(conn, null)).join('')}
-          ${filtered.length === 0 ? '<div class="empty-state">No connections yet</div>' : ''}
-        </div>
-      </div>
-    `;
+  if (filtered.length === 0) {
+    html += '<div class="empty-state">No connections yet</div>';
   }
 
   // Add group button
@@ -500,17 +449,8 @@ function attachGroupEventListeners(container) {
   container.querySelectorAll('.connection-item').forEach(item => {
     item.addEventListener('click', (e) => {
       if (e.target.classList.contains('connection-delete')) return;
-      if (e.target.classList.contains('connection-favorite')) return;
       if (e.target.classList.contains('connection-duplicate')) return;
       loadConnection(item.dataset.name);
-    });
-  });
-
-  // Favorite buttons
-  container.querySelectorAll('.connection-favorite').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleFavorite(btn.dataset.name);
     });
   });
 
@@ -668,8 +608,10 @@ function attachGroupEventListeners(container) {
 }
 
 function updateGroupDropdown() {
+  const defaultGroupId = ensureDefaultGroupId();
   const select = document.getElementById('connectionGroup');
-  select.innerHTML = '<option value="">No group</option>';
+  const selectedValue = select.value;
+  select.innerHTML = '';
 
   connectionGroups.forEach(group => {
     const option = document.createElement('option');
@@ -677,6 +619,9 @@ function updateGroupDropdown() {
     option.textContent = group.name;
     select.appendChild(option);
   });
+
+  const hasPreviousSelection = [...select.options].some(option => option.value === selectedValue);
+  select.value = hasPreviousSelection ? selectedValue : defaultGroupId;
 }
 
 function sanitizeTimeoutSelection(value) {
@@ -731,12 +676,18 @@ function initializeSessionTimeout() {
 function loadSavedConnections() {
   const saved = localStorage.getItem('ssmConnections');
   savedConnections = saved ? JSON.parse(saved) : [];
+  const validGroupIds = new Set(connectionGroups.map(group => group.id));
+  const defaultGroupId = ensureDefaultGroupId();
   // Ensure sortOrder, lastUsedAt, favorite fields exist on all connections
   let needsSave = false;
   savedConnections.forEach((conn, idx) => {
     if (conn.sortOrder == null) { conn.sortOrder = idx; needsSave = true; }
     if (conn.lastUsedAt == null) { conn.lastUsedAt = 0; needsSave = true; }
     if (conn.favorite == null) { conn.favorite = false; needsSave = true; }
+    if (!conn.groupId || !validGroupIds.has(conn.groupId)) {
+      conn.groupId = defaultGroupId;
+      needsSave = true;
+    }
     if (conn.sessionTimeoutMinutes !== null && conn.sessionTimeoutMinutes !== undefined) {
       const parsedTimeout = Number.parseInt(conn.sessionTimeoutMinutes, 10);
       if (![5, 10, 15, 30].includes(parsedTimeout)) {
@@ -778,6 +729,11 @@ function applySortPreference(connections) {
 }
 
 function saveConnection(config, showNotification = true) {
+  const resolvedGroupId = config.groupId && connectionGroups.some(group => group.id === config.groupId)
+    ? config.groupId
+    : ensureDefaultGroupId();
+  config.groupId = resolvedGroupId;
+
   // Use editingConnectionName to find the original connection (handles name changes)
   const lookupName = editingConnectionName || config.name;
   const existing = savedConnections.findIndex(c => c.name === lookupName);
@@ -854,8 +810,6 @@ function duplicateConnection(name) {
 }
 
 function renderConnectionItem(conn, group) {
-  // Validate color is a safe CSS color value
-  const borderColor = group && /^#[0-9a-fA-F]{6}$/.test(group.color) ? group.color : 'transparent';
   // Validate icon path - only allow known service icons
   const validServices = ['opensearch', 'aurora', 'elasticache', 'rabbitmq'];
   const iconSrc = validServices.includes(conn.service) && serviceConfig[conn.service]?.icon
@@ -890,19 +844,15 @@ function renderConnectionItem(conn, group) {
     ? `<div class="connection-notes-preview">${escapeHtml(conn.notes.substring(0, 60))}${conn.notes.length > 60 ? '...' : ''}</div>`
     : '';
 
-  const favoriteClass = conn.favorite ? 'active' : '';
-  const favoriteStar = conn.favorite ? '★' : '☆';
-
   return `
-    <div class="connection-item ${activeClass} ${selectedClass} ${bulkClass}" data-name="${escapeHtml(conn.name)}" draggable="${draggable}" style="border-left-color: ${borderColor}">
+    <div class="connection-item ${activeClass} ${selectedClass} ${bulkClass}" data-name="${escapeHtml(conn.name)}" draggable="${draggable}">
       ${checkbox}
       <img src="${escapeHtml(iconSrc)}" alt="" class="connection-icon-img">
       <div class="connection-info">
-        <div class="connection-name">${activeDot}${escapeHtml(conn.name)}</div>
+        <div class="connection-name">${activeDot}<span class="connection-name-text">${escapeHtml(conn.name)}</span></div>
         <div class="connection-meta">${escapeHtml(conn.profile)} · ${escapeHtml(conn.region)}</div>
         ${notesLine}
       </div>
-      <button class="connection-favorite ${favoriteClass}" data-name="${escapeHtml(conn.name)}" title="Favorite">${favoriteStar}</button>
       <button class="connection-duplicate" data-name="${escapeHtml(conn.name)}" title="Duplicate">⧉</button>
       <button class="connection-delete" data-name="${escapeHtml(conn.name)}" title="Delete">×</button>
     </div>
@@ -923,7 +873,7 @@ function toggleFavorite(name) {
 function moveConnectionToGroup(connectionName, newGroupId) {
   const conn = savedConnections.find(c => c.name === connectionName);
   if (conn) {
-    conn.groupId = newGroupId === 'ungrouped' ? null : newGroupId;
+    conn.groupId = newGroupId === 'ungrouped' ? ensureDefaultGroupId() : newGroupId;
     localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
     renderGroupsWithConnections();
   }
@@ -977,7 +927,7 @@ function loadConnection(name) {
 
   document.getElementById('connectionName').value = conn.name;
   document.getElementById('profileSelect').value = conn.profile;
-  document.getElementById('connectionGroup').value = conn.groupId || '';
+  document.getElementById('connectionGroup').value = conn.groupId || ensureDefaultGroupId();
   document.getElementById('targetInstance').value = conn.target;
   document.getElementById('serviceHost').value = conn.host;
   document.getElementById('region').value = conn.region;
@@ -1085,18 +1035,19 @@ function openBulkMoveModal() {
   if (selectedConnections.size === 0) return;
   const modal = document.getElementById('bulkMoveModal');
   const select = document.getElementById('bulkMoveGroup');
-  select.innerHTML = '<option value="">No group (ungrouped)</option>';
+  select.innerHTML = '';
   connectionGroups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g.id;
     opt.textContent = g.name;
     select.appendChild(opt);
   });
+  select.value = ensureDefaultGroupId();
   modal.classList.remove('hidden');
 }
 
 function confirmBulkMove() {
-  const groupId = document.getElementById('bulkMoveGroup').value || null;
+  const groupId = document.getElementById('bulkMoveGroup').value || ensureDefaultGroupId();
   savedConnections.forEach(c => {
     if (selectedConnections.has(c.name)) {
       c.groupId = groupId;
@@ -1179,10 +1130,6 @@ function updateFilterDropdowns() {
       opt.textContent = g.name;
       groupSelect.appendChild(opt);
     });
-    const ungroupedOpt = document.createElement('option');
-    ungroupedOpt.value = 'ungrouped';
-    ungroupedOpt.textContent = 'Ungrouped';
-    groupSelect.appendChild(ungroupedOpt);
     groupSelect.value = val;
   }
 }
@@ -1437,6 +1384,10 @@ function resetForm() {
   const sessionTimeout = document.getElementById('sessionTimeout');
   if (sessionTimeout) {
     sessionTimeout.value = sanitizeTimeoutSelection(localStorage.getItem(DEFAULT_TIMEOUT_STORAGE_KEY));
+  }
+  const connectionGroupSelect = document.getElementById('connectionGroup');
+  if (connectionGroupSelect) {
+    connectionGroupSelect.value = ensureDefaultGroupId();
   }
   updateSessionTimerDefaultDisplay();
 
@@ -1936,13 +1887,21 @@ async function importConnections() {
     localStorage.setItem('ssmGroups', JSON.stringify(connectionGroups));
   }
 
+  const defaultGroupId = ensureDefaultGroupId();
+  const validGroupIds = new Set(connectionGroups.map(group => group.id));
+
   // Merge connections - update existing, add new
   data.connections.forEach(importedConn => {
+    const normalizedConn = { ...importedConn };
+    if (!normalizedConn.groupId || !validGroupIds.has(normalizedConn.groupId)) {
+      normalizedConn.groupId = defaultGroupId;
+    }
+
     const existingIndex = savedConnections.findIndex(c => c.name === importedConn.name);
     if (existingIndex >= 0) {
-      savedConnections[existingIndex] = importedConn;
+      savedConnections[existingIndex] = normalizedConn;
     } else {
-      savedConnections.push(importedConn);
+      savedConnections.push(normalizedConn);
     }
   });
 
