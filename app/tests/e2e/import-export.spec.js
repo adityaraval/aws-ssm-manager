@@ -27,8 +27,7 @@ test.describe('Import and Export', () => {
     await page.click('#importBtn');
 
     // Wait for import to complete
-    const toast = page.locator('.toast');
-    await expect(toast.first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.toast', { hasText: 'Imported' })).toBeVisible({ timeout: 5000 });
 
     // Both connections should be in the sidebar
     await expect(page.locator('.connection-item[data-name="Existing Conn"]')).toBeVisible();
@@ -51,7 +50,7 @@ test.describe('Import and Export', () => {
     // that export wrote to. But since clearAppState reloads, we need to handle this.
     // The mock import handler reads from ssm-e2e-import.json or returns test data.
     await page.click('#importBtn');
-    await page.waitForSelector('.toast', { state: 'attached', timeout: 5000 });
+    await expect(page.locator('.toast', { hasText: 'Imported' })).toBeVisible({ timeout: 5000 });
 
     // Should have at least one imported connection
     const items = page.locator('.connection-item');

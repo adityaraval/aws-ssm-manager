@@ -40,7 +40,7 @@ test.describe('Connection CRUD', () => {
 
     // Old name should be gone, new name should appear
     await expect(page.locator('.connection-item[data-name="Original Name"]')).toHaveCount(0);
-    // May appear in multiple sections (Recent + Ungrouped), just check at least one exists
+    // Check at least one rendered item exists for the updated name
     await expect(page.locator('.connection-item[data-name="Updated Name"]').first()).toBeVisible();
   });
 

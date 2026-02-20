@@ -44,8 +44,6 @@ This document outlines currently implemented features and potential improvements
 - [x] **Active Connection Indicator** - Visual indicator for currently connected session
 - [x] **Connection Status Badge** - Green dot (connected), blue pulse (connecting), red dot (error) in sidebar
 - [x] **Connection Notes** - Optional notes textarea on connections, displayed in sidebar preview
-- [x] **Favorites** - Star toggle on connections with pinned "Favorites" section at top of sidebar
-- [x] **Recently Used** - "Recent" section showing last 5 used connections in sidebar
 - [x] **Open URL in Browser** - "Open" button in terminal footer to launch service URL in default browser
 - [x] **Keyboard Shortcuts** - Cmd+N (new), Cmd+S (save), Cmd+Enter (connect), Cmd+W (close), Cmd+K (search), Escape (close modals)
 
@@ -95,6 +93,11 @@ This document outlines currently implemented features and potential improvements
 - [ ] Fields: name, icon (upload or select), default remote port, default local port, URL template
 - [ ] Store custom services in localStorage or separate config file
 - [ ] Import/export should include custom service definitions
+
+### 1.3 Sidebar Smart Sections
+- [ ] Introduce optional "Favorites" section in sidebar
+- [ ] Introduce optional "Recent" section (last used connections)
+- [ ] Add setting to show/hide smart sections while keeping groups-only as default
 
 ### 1.4 Configurable Session Timeout (Enhancements)
 - [ ] Warning notification at 1 minute remaining
@@ -221,6 +224,7 @@ When adding new feature requests, use this template:
 
 | Date | Change |
 |------|--------|
+| 2026-02-20 | Updated roadmap to reflect current groups-only sidebar: moved Favorites/Recent from implemented to future enhancements |
 | 2025-02-19 | Implemented Quick Wins: connection notes, favorites, recently used, keyboard shortcuts, open URL in browser, connection status badges |
 | 2025-02-19 | Implemented UX improvements: onboarding wizard, drag-to-reorder, bulk operations, advanced filters, connection sorting |
 | 2025-02-18 | Initial roadmap created with implemented features and future enhancements |

@@ -4,6 +4,7 @@
  */
 
 const { spawn } = require('child_process');
+const { buildCommandPath, resolveExecutable } = require('./executable-utils');
 
 // Default session timeout: 10 minutes
 const DEFAULT_SESSION_TIMEOUT = 10 * 60 * 1000;
@@ -116,8 +117,9 @@ class SSMSession {
 
       // Spawn AWS CLI process with its own process group (for clean termination)
       // Only pass necessary environment variables to avoid leaking sensitive data
+      const commandPath = buildCommandPath(process.env.PATH);
       const safeEnv = {
-        PATH: process.env.PATH,
+        PATH: commandPath,
         HOME: process.env.HOME,
         USER: process.env.USER,
         USERPROFILE: process.env.USERPROFILE, // Windows
@@ -139,7 +141,15 @@ class SSMSession {
         }
       });
 
-      this.process = spawn('aws', args, {
+      const awsExecutable = resolveExecutable('aws', {
+        envPath: commandPath,
+        extraCandidates: ['/opt/homebrew/bin/aws', '/usr/local/bin/aws', '/usr/bin/aws']
+      });
+      if (!awsExecutable) {
+        throw new Error('AWS CLI not found in PATH. Install AWS CLI v2 and reopen the app.');
+      }
+
+      this.process = spawn(awsExecutable, args, {
         detached: process.platform !== 'win32', // Create new process group (Unix only)
         env: safeEnv
       });
