@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const { SSMSession } = require('./ssm-session');
 const { checkLocalPortAvailability, normalizePortError } = require('./port-utils');
+const { buildCommandPath, resolveExecutable } = require('./executable-utils');
 
 let mainWindow;
 let currentSession = null;
@@ -580,11 +581,21 @@ ipcMain.handle('check-prerequisites', async () => {
     ssmPlugin: { installed: false },
     credentials: { configured: false, profileCount: 0 }
   };
+  const commandPath = buildCommandPath(process.env.PATH);
+  const commandEnv = { ...process.env, PATH: commandPath };
 
   // Check AWS CLI
   try {
+    const awsExecutable = resolveExecutable('aws', {
+      envPath: commandPath,
+      extraCandidates: ['/opt/homebrew/bin/aws', '/usr/local/bin/aws', '/usr/bin/aws']
+    });
+    if (!awsExecutable) {
+      throw new Error('aws executable not found');
+    }
+
     const awsVersion = await new Promise((resolve, reject) => {
-      execFile('aws', ['--version'], { timeout: 5000 }, (err, stdout, stderr) => {
+      execFile(awsExecutable, ['--version'], { timeout: 5000, env: commandEnv }, (err, stdout, stderr) => {
         if (err) return reject(err);
         resolve((stdout || stderr || '').trim());
       });
@@ -597,10 +608,23 @@ ipcMain.handle('check-prerequisites', async () => {
 
   // Check SSM Plugin
   try {
+    const pluginExecutable = resolveExecutable('session-manager-plugin', {
+      envPath: commandPath,
+      extraCandidates: [
+        '/usr/local/sessionmanagerplugin/bin/session-manager-plugin',
+        '/opt/homebrew/bin/session-manager-plugin',
+        '/usr/local/bin/session-manager-plugin',
+        '/usr/bin/session-manager-plugin'
+      ]
+    });
+    if (!pluginExecutable) {
+      throw new Error('session-manager-plugin executable not found');
+    }
+
     await new Promise((resolve, reject) => {
-      execFile('session-manager-plugin', ['--version'], { timeout: 5000 }, (err, stdout) => {
+      execFile(pluginExecutable, ['--version'], { timeout: 5000, env: commandEnv }, (err, stdout, stderr) => {
         if (err) return reject(err);
-        resolve((stdout || '').trim());
+        resolve((stdout || stderr || '').trim());
       });
     });
     result.ssmPlugin.installed = true;

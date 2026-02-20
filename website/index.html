@@ -8,13 +8,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
+            sans: ['Manrope', 'system-ui', 'sans-serif'],
+            display: ['Sora', 'Manrope', 'system-ui', 'sans-serif'],
           },
           colors: {
             gray: {
@@ -36,15 +37,36 @@
     }
   </script>
   <style>
+    :root {
+      --bg-a: #fff7ed;
+      --bg-b: #eff6ff;
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --brand: #f97316;
+      --brand-deep: #ea580c;
+    }
     html { scroll-behavior: smooth; }
     .gradient-text {
-      background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+      background: linear-gradient(120deg, var(--brand) 0%, var(--brand-deep) 60%, #ef4444 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+    .hero-shell {
+      background:
+        radial-gradient(1200px 460px at 10% -10%, rgba(249, 115, 22, 0.18), transparent 60%),
+        radial-gradient(900px 420px at 90% -20%, rgba(59, 130, 246, 0.14), transparent 60%),
+        linear-gradient(180deg, var(--bg-a) 0%, #ffffff 45%, var(--bg-b) 100%);
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+    }
     .feature-card:hover {
-      transform: translateY(-2px);
+      transform: translateY(-4px);
+      box-shadow: 0 18px 35px rgba(17, 24, 39, 0.08);
     }
     .download-btn:hover {
       transform: translateY(-1px);
@@ -70,57 +92,40 @@
   </nav>
 
   <!-- Hero Section -->
-  <section class="pt-32 pb-20 px-6">
-    <div class="max-w-3xl mx-auto text-center">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-sm font-medium mb-8">
-        <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
-        Now available for Mac, Windows & Linux
+  <section class="hero-shell pt-32 pb-16 sm:pb-20 px-4 sm:px-6">
+    <div class="max-w-6xl mx-auto grid lg:grid-cols-2 gap-10 items-center">
+      <div class="text-center lg:text-left">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold mb-7">
+          <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+          Now available for Mac, Windows and Linux
+        </div>
+        <h1 class="font-display text-5xl sm:text-6xl font-extrabold tracking-tight text-gray-900 mb-6 leading-[1.02]">
+          AWS port forwarding,
+          <span class="gradient-text block">without the friction.</span>
+        </h1>
+        <p class="text-lg sm:text-xl text-gray-600 mb-9 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+          Manage SSM tunnels in a polished desktop app. Save connections, organize by groups, and launch secure sessions in seconds.
+        </p>
+        <div class="flex flex-col sm:flex-row items-center lg:items-start gap-4">
+          <a href="#download" class="download-btn inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/15">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-13v6.586l-2.293-2.293-1.414 1.414L12 17.414l4.707-4.707-1.414-1.414L13 13.586V7h-2z"/></svg>
+            Download for Free
+          </a>
+          <a href="#features" class="inline-flex items-center gap-2 px-6 py-3 text-gray-700 hover:text-gray-900 font-semibold transition-colors">
+            Explore features
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </a>
+        </div>
       </div>
-
-      <h1 class="text-5xl sm:text-6xl font-bold tracking-tight text-gray-900 mb-6 leading-[1.1]">
-        AWS port forwarding,<br>
-        <span class="gradient-text">simplified.</span>
-      </h1>
-
-      <p class="text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
-        A beautiful desktop app for managing AWS SSM sessions. Connect to your private databases and services through secure tunnels — no VPN required.
-      </p>
-
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="#download" class="download-btn inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/10">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-1-13v6.586l-2.293-2.293-1.414 1.414L12 17.414l4.707-4.707-1.414-1.414L13 13.586V7h-2z"/></svg>
-          Download for Free
-        </a>
-        <a href="#features" class="inline-flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 font-medium transition-colors">
-          See how it works
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- App Preview -->
-  <section class="pb-20 px-6">
-    <div class="max-w-4xl mx-auto">
-      <div class="bg-gray-100 rounded-2xl p-2 shadow-2xl shadow-gray-900/10">
-        <div class="bg-white rounded-xl overflow-hidden border border-gray-200">
-          <!-- Mock window chrome -->
-          <div class="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <div class="flex gap-1.5">
-              <div class="w-3 h-3 rounded-full bg-red-400"></div>
-              <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <div class="w-3 h-3 rounded-full bg-green-400"></div>
-            </div>
-            <div class="flex-1 text-center text-xs text-gray-400">AWS SSM Manager</div>
-          </div>
-          <div class="aspect-[16/10] bg-gray-50">
-            <img
-              src="assets/screenshot.png"
-              alt="AWS SSM Manager app screenshot"
-              class="w-full h-full object-cover object-top"
-              loading="lazy"
-            >
-          </div>
+      <div class="relative">
+        <div class="absolute -inset-6 bg-gradient-to-br from-orange-200/40 via-white/0 to-blue-200/40 blur-2xl"></div>
+        <div class="relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-2xl shadow-gray-900/10">
+          <img
+            src="assets/screenshot.png"
+            alt="AWS SSM Manager app screenshot"
+            class="block w-full h-auto max-h-[58vh] object-contain"
+            loading="lazy"
+          >
         </div>
       </div>
     </div>
@@ -138,7 +143,7 @@
         <!-- Feature 1 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M6 12h12M9 17h6"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Multiple Services</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Connect to OpenSearch, Aurora PostgreSQL, ElastiCache Redis, and Amazon MQ with pre-configured defaults.</p>
@@ -147,7 +152,7 @@
         <!-- Feature 2 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h7v5H4zM13 6h7v5h-7zM4 13h7v5H4zM13 13h7v5h-7z"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Organized Connections</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Group, color-code, and collapse sections for cleaner navigation across environments.</p>
@@ -165,7 +170,7 @@
         <!-- Feature 4 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="9" y="9" width="10" height="10" rx="2" stroke-width="2"/><rect x="5" y="5" width="10" height="10" rx="2" stroke-width="2"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Duplicate Connections</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Clone existing connections in one click to create safe variations without retyping details.</p>
@@ -174,7 +179,7 @@
         <!-- Feature 5 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+            <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v5l3 2"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Configurable Timeouts</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Choose 5/10/15/30 minutes or no timeout per connection, with live countdown warnings.</p>
@@ -183,7 +188,7 @@
         <!-- Feature 6 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9l6 6M15 9l-6 6"/><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Port Conflict Detection</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Detects busy local ports before starting a tunnel and returns clear, actionable errors.</p>
@@ -191,53 +196,44 @@
 
         <!-- Feature 7 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
-          <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-          </div>
-          <h3 class="font-semibold text-gray-900 mb-2">Favorites & Recent</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Pin important connections and quickly reopen recently used ones from dedicated sections.</p>
-        </div>
-
-        <!-- Feature 8 -->
-        <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 11l3 3L22 4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Bulk Operations</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Select multiple connections and move, export, or delete them in one action.</p>
         </div>
 
-        <!-- Feature 9 -->
+        <!-- Feature 8 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h18M6 12h12M10 19h4"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Advanced Filters & Sort</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Filter by group, service, region, and profile. Sort by name, recency, service, or manual order.</p>
         </div>
 
-        <!-- Feature 10 -->
+        <!-- Feature 9 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <svg class="w-5 h-5 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16v12H4z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Live Terminal</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Watch session output in real-time, track status changes, and inspect connection lifecycle logs.</p>
         </div>
 
-        <!-- Feature 11 -->
+        <!-- Feature 10 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-sky-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <svg class="w-5 h-5 text-sky-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9" stroke-width="2"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Onboarding Checks</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Built-in first-run checks validate AWS CLI, Session Manager plugin, and configured credentials.</p>
         </div>
 
-        <!-- Feature 12 -->
+        <!-- Feature 11 -->
         <div class="feature-card bg-white p-6 rounded-xl border border-gray-200 transition-all duration-200">
           <div class="w-10 h-10 bg-lime-100 rounded-lg flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-lime-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.55-4.55a2 2 0 10-2.83-2.83L12.17 7.17m0 0l-1.41-1.41a2 2 0 10-2.83 2.83l1.41 1.41m2.83-2.83L9.34 10m0 0L4.8 14.54a2 2 0 102.83 2.83L12.17 12.83m-2.83-2.83l2.83 2.83"/></svg>
+            <svg class="w-5 h-5 text-lime-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7v7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14L21 3"/><rect x="3" y="7" width="11" height="14" rx="2" stroke-width="2"/></svg>
           </div>
           <h3 class="font-semibold text-gray-900 mb-2">Open & Copy Service URLs</h3>
           <p class="text-sm text-gray-500 leading-relaxed">Copy generated local URLs or open supported service endpoints directly from the session footer.</p>
