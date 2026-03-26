@@ -1014,6 +1014,10 @@ function moveConnectionToGroup(connectionName, newGroupId) {
   if (conn) {
     conn.groupId = newGroupId === 'ungrouped' ? ensureDefaultGroupId() : newGroupId;
     safeSetItem('ssmConnections', JSON.stringify(savedConnections));
+    // Sync form group selector if this connection is currently loaded in the form
+    if (editingConnectionName === connectionName) {
+      document.getElementById('connectionGroup').value = conn.groupId;
+    }
     renderGroupsWithConnections();
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "aws-ssm-manager",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Cross-platform AWS SSM Session Manager Desktop App",
   "homepage": "https://github.com/adityaraval/aws-ssm-manager",
   "repository": {
