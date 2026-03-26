@@ -1,5 +1,5 @@
 const { expect } = require('@playwright/test');
-const { test, clearAppState, createConnection } = require('./fixtures');
+const { test, clearAppState, createConnection, clickImport, clickExport } = require('./fixtures');
 
 test.describe('Import and Export', () => {
   test.beforeEach(async ({ page }) => {
@@ -13,7 +13,7 @@ test.describe('Import and Export', () => {
     await page.waitForTimeout(3000);
 
     // Click export button
-    await page.click('#exportBtn');
+    await clickExport(page);
 
     // Wait for export success toast
     await expect(page.locator('.toast', { hasText: 'Exported' })).toBeVisible({ timeout: 5000 });
@@ -24,7 +24,7 @@ test.describe('Import and Export', () => {
     await createConnection(page, { name: 'Existing Conn' });
 
     // Click import button (mock returns 'Imported Connection')
-    await page.click('#importBtn');
+    await clickImport(page);
 
     // Wait for import to complete
     await expect(page.locator('.toast', { hasText: 'Imported' })).toBeVisible({ timeout: 5000 });
@@ -39,7 +39,7 @@ test.describe('Import and Export', () => {
     await createConnection(page, { name: 'Roundtrip Conn' });
 
     // Export first (writes to temp file)
-    await page.click('#exportBtn');
+    await clickExport(page);
     await page.waitForSelector('.toast', { state: 'attached', timeout: 5000 });
 
     // Clear state
@@ -49,7 +49,7 @@ test.describe('Import and Export', () => {
     // Now the mock import-connections handler will try to read from the same temp file
     // that export wrote to. But since clearAppState reloads, we need to handle this.
     // The mock import handler reads from ssm-e2e-import.json or returns test data.
-    await page.click('#importBtn');
+    await clickImport(page);
     await expect(page.locator('.toast', { hasText: 'Imported' })).toBeVisible({ timeout: 5000 });
 
     // Should have at least one imported connection

@@ -93,4 +93,20 @@ async function createConnection(page, options = {}) {
   await saveConnection(page);
 }
 
-module.exports = { test, clearAppState, fillConnectionForm, saveConnection, createConnection };
+/**
+ * Open the overflow menu and click import
+ */
+async function clickImport(page) {
+  await page.click('#footerOverflowBtn');
+  await page.click('#importBtn');
+}
+
+/**
+ * Open the overflow menu and click export
+ */
+async function clickExport(page) {
+  await page.click('#footerOverflowBtn');
+  await page.click('#exportBtn');
+}
+
+module.exports = { test, clearAppState, fillConnectionForm, saveConnection, createConnection, clickImport, clickExport };

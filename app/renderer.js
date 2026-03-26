@@ -10,19 +10,28 @@ let activeFilters = { group: '', service: '', region: '', profile: '' };
 let filterPanelVisible = false;
 let bulkSelectMode = false;
 let selectedConnections = new Set();
-let isSessionActive = false;
-let connectionState = 'idle'; // idle | connecting | connected | error
-let activeConnectionName = null; // Track which connection is currently active
-let activeConnectionConfig = null; // Store the active connection config for URL generation
+const MAX_SESSIONS = 5;
+const sessions = new Map(); // key: connection.id → { state, config, terminal, fitAddon, mountEl, timerInterval, sessionStartTime, sessionDuration, sessionId }
+let activeTabId = null;
 let pendingDeleteConnection = null; // Track connection pending deletion
-let terminal = null;
-let fitAddon = null;
+let pendingDeleteGroupId = null; // Track group pending deletion
 
 const DEFAULT_SESSION_TIMEOUT_MINUTES = 10;
 const NO_TIMEOUT_VALUE = 'none';
 const DEFAULT_TIMEOUT_STORAGE_KEY = 'ssmDefaultSessionTimeout';
 const DEFAULT_GROUP_NAME = 'General';
 const DEFAULT_GROUP_COLOR = '#6b7280';
+
+// Safe localStorage write with quota handling (G3)
+function safeSetItem(key, value) {
+  try {
+    safeSetItem(key, value);
+  } catch (e) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      showToast('Storage full — cannot save. Try removing unused connections.', 'error');
+    }
+  }
+}
 
 // HTML escape function to prevent XSS attacks
 function escapeHtml(str) {
@@ -32,10 +41,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Session timer
-let sessionStartTime = null;
-let sessionDuration = DEFAULT_SESSION_TIMEOUT_MINUTES * 60 * 1000;
-let timerInterval = null;
+// Session timers are now per-session inside the sessions Map
 
 const serviceConfig = {
   opensearch: {
@@ -65,8 +71,19 @@ const serviceConfig = {
     remotePort: '443',
     localPort: '15672',
     urlTemplate: (port) => `https://localhost:${port}`
+  },
+  custom: {
+    name: 'Custom',
+    icon: null,
+    remotePort: '',
+    localPort: '',
+    urlTemplate: null
   }
 };
+
+function generateConnectionId() {
+  return 'conn-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeSessionTimeout();
@@ -84,61 +101,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Terminal Management
 function setupTerminal() {
-  // Create terminal using global Terminal class (loaded via script tag)
-  terminal = new Terminal({
-    theme: {
-      background: '#1a1a1a',
-      foreground: '#f5f5f5',
-      cursor: '#f5f5f5',
-      cursorAccent: '#1a1a1a',
-      selectionBackground: '#3b82f6',
-      black: '#1a1a1a',
-      red: '#ef4444',
-      green: '#22c55e',
-      yellow: '#eab308',
-      blue: '#3b82f6',
-      magenta: '#8b5cf6',
-      cyan: '#06b6d4',
-      white: '#f5f5f5'
-    },
-    fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
-    fontSize: 13,
-    lineHeight: 1.4,
-    cursorBlink: true,
-    scrollback: 1000,
-    convertEol: true
+  // Register once-per-app-lifetime IPC listeners (route by id)
+  window.electronAPI.onTerminalOutput((id, text) => {
+    sessions.get(id)?.terminal.write(text);
   });
 
-  fitAddon = new FitAddon.FitAddon();
-  terminal.loadAddon(fitAddon);
-
-  // Terminal output listener
-  window.electronAPI.onTerminalOutput((text) => {
-    if (terminal) {
-      terminal.write(text);
-    }
+  window.electronAPI.onSessionStatus((id, status) => {
+    updateSessionState(id, status);
   });
 
-  // Session status listener
-  window.electronAPI.onSessionStatus((status) => {
-    updateTerminalStatus(status);
+  window.electronAPI.onSessionClosed((id) => {
+    handleSessionClosed(id);
   });
 
-  // Terminal button handlers
+  // Minimize button
   document.getElementById('terminalMinimize').addEventListener('click', () => {
     const modal = document.getElementById('terminalModal');
     modal.classList.toggle('minimized');
+    const toastContainer = document.getElementById('toastContainer');
+    if (toastContainer) {
+      if (modal.classList.contains('minimized')) {
+        toastContainer.classList.remove('terminal-visible');
+        toastContainer.classList.add('terminal-minimized');
+      } else {
+        toastContainer.classList.remove('terminal-minimized');
+        toastContainer.classList.add('terminal-visible');
+      }
+    }
+    // Re-fit active terminal after minimize toggle
+    if (activeTabId && !modal.classList.contains('minimized')) {
+      sessions.get(activeTabId)?.fitAddon.fit();
+    }
   });
 
+  // Main modal × — stop all sessions
   document.getElementById('terminalClose').addEventListener('click', async () => {
-    await stopSession();
+    await stopAllSessions();
     hideTerminal();
   });
 
-  // Resize terminal on window resize
+  // Resize — fit only the active terminal
   window.addEventListener('resize', () => {
-    if (fitAddon && terminal && !document.getElementById('terminalModal').classList.contains('hidden')) {
-      fitAddon.fit();
+    if (activeTabId && !document.getElementById('terminalModal').classList.contains('hidden')) {
+      sessions.get(activeTabId)?.fitAddon.fit();
     }
   });
 }
@@ -147,64 +152,170 @@ function showTerminal(config) {
   const modal = document.getElementById('terminalModal');
   const container = document.getElementById('terminalContainer');
 
-  modal.classList.remove('hidden', 'minimized');
+  // Create xterm instance for this session
+  const term = new Terminal({
+    theme: { background: '#0f172a', foreground: '#e2e8f0', cursor: '#e2e8f0' },
+    fontSize: 13,
+    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+    cursorBlink: true,
+    scrollback: 1000,
+    convertEol: true
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
 
-  // Initialize terminal in container if not already
-  if (!terminal._element) {
-    terminal.open(container);
-    fitAddon.fit();
+  // Create mount div — must be visible before terminal.open()
+  const mountEl = document.createElement('div');
+  mountEl.className = 'terminal-mount';
+  mountEl.dataset.sessionId = config.id;
+
+  // Hide all existing mount points
+  container.querySelectorAll('.terminal-mount').forEach(el => { el.style.display = 'none'; });
+
+  // Show new mount point first, then open terminal
+  mountEl.style.display = 'block';
+  container.appendChild(mountEl);
+  term.open(mountEl);
+  fit.fit();
+
+  // Write welcome banner
+  term.writeln('\x1b[1;36m╭─────────────────────────────────────────────────────╮\x1b[0m');
+  term.writeln('\x1b[1;36m│\x1b[0m       \x1b[1;33m⚡ AWS SSM Port Forwarding Session\x1b[0m          \x1b[1;36m│\x1b[0m');
+  term.writeln('\x1b[1;36m╰─────────────────────────────────────────────────────╯\x1b[0m');
+  term.writeln('');
+
+  // Store in sessions Map (entry created by startSession before this call)
+  const sess = sessions.get(config.id);
+  if (sess) {
+    sess.terminal = term;
+    sess.fitAddon = fit;
+    sess.mountEl = mountEl;
   }
 
-  // Clear and write welcome message
-  terminal.clear();
-  terminal.writeln('\x1b[1;36m╭─────────────────────────────────────────────────────╮\x1b[0m');
-  terminal.writeln('\x1b[1;36m│\x1b[0m       \x1b[1;33m⚡ AWS SSM Port Forwarding Session\x1b[0m          \x1b[1;36m│\x1b[0m');
-  terminal.writeln('\x1b[1;36m╰─────────────────────────────────────────────────────╯\x1b[0m');
-  terminal.writeln('');
+  // Add tab
+  addTab(config);
 
-  // Update footer info
+  // Show modal and offset toasts
+  modal.classList.remove('hidden', 'minimized');
+  const toastContainer = document.getElementById('toastContainer');
+  if (toastContainer) {
+    toastContainer.classList.remove('terminal-minimized');
+    toastContainer.classList.add('terminal-visible');
+  }
+
+  // Switch active tab
+  setActiveTab(config.id);
+}
+
+function addTab(config) {
+  const tabsEl = document.getElementById('terminalTabs');
+  const tab = document.createElement('div');
+  tab.className = 'terminal-tab';
+  tab.dataset.id = config.id;
+
+  const dot = document.createElement('span');
+  dot.className = 'terminal-tab-dot';
+  dot.style.setProperty('--tab-color', '#3b82f6'); // blue while connecting
+
+  const label = document.createElement('span');
+  label.textContent = config.name;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'terminal-tab-close';
+  closeBtn.textContent = '×';
+  closeBtn.title = 'Stop session';
+  closeBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await stopSession(config.id);
+  });
+
+  tab.appendChild(dot);
+  tab.appendChild(label);
+  tab.appendChild(closeBtn);
+  tab.addEventListener('click', () => setActiveTab(config.id));
+  tabsEl.appendChild(tab);
+}
+
+function setActiveTab(id) {
+  const container = document.getElementById('terminalContainer');
+  const tabsEl = document.getElementById('terminalTabs');
+
+  // Hide all mount points first
+  container.querySelectorAll('.terminal-mount').forEach(el => { el.style.display = 'none'; });
+
+  // Show target mount point (must be before fitAddon.fit())
+  const sess = sessions.get(id);
+  if (sess?.mountEl) {
+    sess.mountEl.style.display = 'block';
+    sess.fitAddon.fit();
+  }
+
+  // Update tab active state
+  tabsEl.querySelectorAll('.terminal-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.id === id);
+  });
+
+  activeTabId = id;
+  updateTerminalFooter(id);
+}
+
+function updateTerminalFooter(id) {
+  const sess = sessions.get(id);
+  if (!sess) return;
+  const { config, sessionId } = sess;
+
   document.getElementById('terminalInfo').textContent = `Local: localhost:${config.localPortNumber}`;
-  document.getElementById('terminalSessionId').textContent = 'Session: Initializing...';
+  document.getElementById('terminalSessionId').textContent = sessionId
+    ? `Session: ${sessionId.substring(0, 20)}...`
+    : 'Session: Initializing...';
 
-  updateTerminalStatus('connecting');
+  updateTimerDisplay(id);
 }
 
 function hideTerminal() {
   const modal = document.getElementById('terminalModal');
   modal.classList.add('hidden');
-  updateTerminalStatus('disconnected');
+
+  // Reset toast position
+  const toastContainer = document.getElementById('toastContainer');
+  if (toastContainer) {
+    toastContainer.classList.remove('terminal-visible', 'terminal-minimized');
+  }
 }
 
-function updateTerminalStatus(status) {
-  const statusEl = document.getElementById('terminalStatus');
-
-  // Remove all status classes
-  statusEl.classList.remove('connecting', 'connected', 'error', 'disconnected');
-
-  switch (status) {
-    case 'connecting':
-      statusEl.textContent = 'Connecting...';
-      statusEl.classList.add('connecting');
-      break;
-    case 'connected':
-      statusEl.textContent = 'Connected';
-      statusEl.classList.add('connected');
-      break;
-    case 'error':
-      statusEl.textContent = 'Error';
-      statusEl.classList.add('error');
-      break;
-    case 'disconnecting':
-      statusEl.textContent = 'Disconnecting...';
-      statusEl.classList.add('connecting');
-      break;
-    case 'disconnected':
-      statusEl.textContent = 'Disconnected';
-      statusEl.classList.add('disconnected');
-      break;
-    default:
-      statusEl.textContent = status;
+function updateSessionState(id, status) {
+  const sess = sessions.get(id);
+  if (!sess) return;
+  sess.state = status;
+  updateTabDot(id, status);
+  // If this is the active tab, update the header status text
+  if (activeTabId === id) {
+    const statusEl = document.getElementById('terminalStatus');
+    if (statusEl) {
+      statusEl.classList.remove('connecting', 'connected', 'error', 'disconnected');
+      const map = {
+        connecting: ['Connecting...', 'connecting'],
+        connected: ['Connected', 'connected'],
+        error: ['Error', 'error'],
+        disconnecting: ['Disconnecting...', 'connecting'],
+        disconnected: ['Disconnected', 'disconnected']
+      };
+      const [text, cls] = map[status] || [status, ''];
+      statusEl.textContent = text;
+      if (cls) statusEl.classList.add(cls);
+    }
   }
+}
+
+function updateTabDot(id, state) {
+  const tab = document.querySelector(`#terminalTabs .terminal-tab[data-id="${CSS.escape(id)}"]`);
+  if (!tab) return;
+  const dot = tab.querySelector('.terminal-tab-dot');
+  if (!dot) return;
+  const colours = { connecting: '#3b82f6', connected: '#22c55e', error: '#ef4444', disconnecting: '#3b82f6' };
+  const colour = colours[state] || '#64748b';
+  dot.style.setProperty('--tab-color', colour);
+  tab.style.setProperty('--tab-color', colour);
 }
 
 // Profile Management
@@ -234,7 +345,7 @@ function ensureDefaultGroupId() {
       color: DEFAULT_GROUP_COLOR
     };
     connectionGroups.push(defaultGroup);
-    localStorage.setItem('ssmGroups', JSON.stringify(connectionGroups));
+    safeSetItem('ssmGroups', JSON.stringify(connectionGroups));
   }
   return defaultGroup.id;
 }
@@ -257,13 +368,13 @@ function loadGroups() {
 }
 
 function saveGroups() {
-  localStorage.setItem('ssmGroups', JSON.stringify(connectionGroups));
+  safeSetItem('ssmGroups', JSON.stringify(connectionGroups));
   renderGroupsWithConnections();
   updateGroupDropdown();
 }
 
 function saveCollapsedState() {
-  localStorage.setItem('ssmCollapsedGroups', JSON.stringify([...collapsedGroups]));
+  safeSetItem('ssmCollapsedGroups', JSON.stringify([...collapsedGroups]));
 }
 
 function toggleGroupCollapse(groupId) {
@@ -302,7 +413,7 @@ function deleteGroup(id) {
     }
     return c;
   });
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   saveGroups();
 }
 
@@ -318,7 +429,9 @@ function renderGroupsWithConnections() {
       const profile = (conn.profile || '').toLowerCase();
       const region = (conn.region || '').toLowerCase();
       const host = (conn.host || '').toLowerCase();
-      const serviceName = (serviceConfig[conn.service]?.name || '').toLowerCase();
+      const serviceName = conn.service === 'custom'
+        ? (conn.customServiceName || 'custom').toLowerCase()
+        : (serviceConfig[conn.service]?.name || '').toLowerCase();
 
       // Check if name starts with search term (primary match)
       if (name.startsWith(term)) return true;
@@ -382,18 +495,24 @@ function renderGroupsWithConnections() {
           <span class="group-count">${count}</span>
           <div class="group-actions">
             <button class="group-edit" data-id="${escapeHtml(group.id)}" title="Edit">✎</button>
-            <button class="group-delete" data-id="${escapeHtml(group.id)}" title="Delete">×</button>
+            ${group.name !== DEFAULT_GROUP_NAME ? `<button class="group-delete" data-id="${escapeHtml(group.id)}" title="Delete">×</button>` : ''}
           </div>
         </div>
         <div class="group-connections" data-group-id="${escapeHtml(group.id)}">
-          ${connections.map(conn => renderConnectionItem(conn, group)).join('')}
+          ${connections.length > 0
+            ? connections.map(conn => renderConnectionItem(conn, group)).join('')
+            : '<div class="empty-group-state">No connections in this group</div>'}
         </div>
       </div>
     `;
   });
 
   if (filtered.length === 0) {
-    html += '<div class="empty-state">No connections yet</div>';
+    if (savedConnections.length === 0) {
+      html += '<div class="empty-state">No connections yet</div>';
+    } else {
+      html += '<div class="empty-state">No matching connections</div>';
+    }
   }
 
   // Add group button
@@ -435,7 +554,7 @@ function attachGroupEventListeners(container) {
   container.querySelectorAll('.group-delete').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      deleteGroup(btn.dataset.id);
+      openDeleteGroupModal(btn.dataset.id);
     });
   });
 
@@ -646,7 +765,7 @@ function getSelectedSessionTimeoutMinutes() {
 }
 
 function updateSessionTimerDefaultDisplay() {
-  if (isSessionActive) return;
+  if (sessions.size > 0) return;
   const timerValue = document.getElementById('timerValue');
   const timerContainer = document.getElementById('sessionTimer');
   if (!timerValue || !timerContainer) return;
@@ -668,7 +787,7 @@ function initializeSessionTimeout() {
   const savedDefault = localStorage.getItem(DEFAULT_TIMEOUT_STORAGE_KEY);
   const timeoutValue = sanitizeTimeoutSelection(savedDefault);
   select.value = timeoutValue;
-  localStorage.setItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
+  safeSetItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
   updateSessionTimerDefaultDisplay();
 }
 
@@ -678,9 +797,10 @@ function loadSavedConnections() {
   savedConnections = saved ? JSON.parse(saved) : [];
   const validGroupIds = new Set(connectionGroups.map(group => group.id));
   const defaultGroupId = ensureDefaultGroupId();
-  // Ensure sortOrder, lastUsedAt, favorite fields exist on all connections
+  // Ensure sortOrder, lastUsedAt, favorite, id fields exist on all connections
   let needsSave = false;
   savedConnections.forEach((conn, idx) => {
+    if (!conn.id) { conn.id = generateConnectionId(); needsSave = true; }
     if (conn.sortOrder == null) { conn.sortOrder = idx; needsSave = true; }
     if (conn.lastUsedAt == null) { conn.lastUsedAt = 0; needsSave = true; }
     if (conn.favorite == null) { conn.favorite = false; needsSave = true; }
@@ -699,7 +819,7 @@ function loadSavedConnections() {
     }
   });
   if (needsSave) {
-    localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+    safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   }
   renderGroupsWithConnections();
 }
@@ -734,12 +854,16 @@ function saveConnection(config, showNotification = true) {
     : ensureDefaultGroupId();
   config.groupId = resolvedGroupId;
 
-  // Use editingConnectionName to find the original connection (handles name changes)
+  // Find existing connection: prefer by id, fall back to name (legacy)
   const lookupName = editingConnectionName || config.name;
-  const existing = savedConnections.findIndex(c => c.name === lookupName);
+  let existing = config.id ? savedConnections.findIndex(c => c.id === config.id) : -1;
+  if (existing < 0) {
+    existing = savedConnections.findIndex(c => c.name === lookupName);
+  }
 
   if (existing >= 0) {
-    // Preserve sortOrder and lastUsedAt if not set on new config
+    // Preserve id and other fields if not set on new config
+    if (!config.id) config.id = savedConnections[existing].id || generateConnectionId();
     if (config.sortOrder == null) config.sortOrder = savedConnections[existing].sortOrder || 0;
     if (config.lastUsedAt == null) config.lastUsedAt = savedConnections[existing].lastUsedAt || 0;
     if (config.notes == null) config.notes = savedConnections[existing].notes || '';
@@ -749,7 +873,8 @@ function saveConnection(config, showNotification = true) {
     }
     savedConnections[existing] = config;
   } else {
-    // Assign sortOrder for new connections
+    // Assign id and sortOrder for new connections
+    if (!config.id) config.id = generateConnectionId();
     const maxOrder = savedConnections.reduce((max, c) => Math.max(max, c.sortOrder || 0), 0);
     if (config.sortOrder == null) config.sortOrder = maxOrder + 1;
     if (config.lastUsedAt == null) config.lastUsedAt = 0;
@@ -763,7 +888,7 @@ function saveConnection(config, showNotification = true) {
   // Update editingConnectionName to the new name after save
   editingConnectionName = config.name;
 
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
   updateGroupDropdown();
   if (showNotification) {
@@ -773,7 +898,7 @@ function saveConnection(config, showNotification = true) {
 
 function deleteConnection(name) {
   savedConnections = savedConnections.filter(c => c.name !== name);
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
 }
 
@@ -798,6 +923,7 @@ function duplicateConnection(name) {
 
   const duplicated = {
     ...source,
+    id: generateConnectionId(), // New unique ID for the duplicate
     name: getDuplicateConnectionName(source.name),
     lastUsedAt: 0,
     favorite: false
@@ -811,13 +937,15 @@ function duplicateConnection(name) {
 
 function renderConnectionItem(conn, group) {
   // Validate icon path - only allow known service icons
-  const validServices = ['opensearch', 'aurora', 'elasticache', 'rabbitmq'];
-  const iconSrc = validServices.includes(conn.service) && serviceConfig[conn.service]?.icon
+  const validIconServices = ['opensearch', 'aurora', 'elasticache', 'rabbitmq'];
+  const isCustomService = conn.service === 'custom';
+  const iconSrc = validIconServices.includes(conn.service) && serviceConfig[conn.service]?.icon
     ? serviceConfig[conn.service].icon
-    : 'images/AmazonOpenSearch.svg';
-  const isActive = isSessionActive && activeConnectionName === conn.name;
-  const isConnecting = connectionState === 'connecting' && activeConnectionName === conn.name;
-  const isError = connectionState === 'error' && activeConnectionName === conn.name;
+    : null;
+  const sess = sessions.get(conn.id);
+  const isActive     = sess?.state === 'connected';
+  const isConnecting = sess?.state === 'connecting';
+  const isError      = sess?.state === 'error';
   const isSelected = editingConnectionName === conn.name;
   const activeClass = isActive ? 'active-session' : '';
   const selectedClass = isSelected ? 'selected' : '';
@@ -844,13 +972,24 @@ function renderConnectionItem(conn, group) {
     ? `<div class="connection-notes-preview">${escapeHtml(conn.notes.substring(0, 60))}${conn.notes.length > 60 ? '...' : ''}</div>`
     : '';
 
+  const iconHtml = iconSrc
+    ? `<img src="${escapeHtml(iconSrc)}" alt="" class="connection-icon-img">`
+    : `<div class="connection-icon-custom-small" title="${escapeHtml(conn.customServiceName || 'Custom')}">⚙</div>`;
+
+  const serviceLabel = isCustomService && conn.customServiceName
+    ? `<span class="connection-custom-service">${escapeHtml(conn.customServiceName)}</span>`
+    : '';
+
+  const dragHandle = !bulkSelectMode ? '<span class="connection-drag-handle">⠿</span>' : '';
+
   return `
     <div class="connection-item ${activeClass} ${selectedClass} ${bulkClass}" data-name="${escapeHtml(conn.name)}" draggable="${draggable}">
+      ${dragHandle}
       ${checkbox}
-      <img src="${escapeHtml(iconSrc)}" alt="" class="connection-icon-img">
+      ${iconHtml}
       <div class="connection-info">
-        <div class="connection-name">${activeDot}<span class="connection-name-text">${escapeHtml(conn.name)}</span></div>
-        <div class="connection-meta">${escapeHtml(conn.profile)} · ${escapeHtml(conn.region)}</div>
+        <div class="connection-name">${activeDot}<span class="connection-name-text">${escapeHtml(conn.name)}</span>${serviceLabel}</div>
+        <div class="connection-meta">${escapeHtml(conn.profile)} · ${escapeHtml(conn.region)}${(searchTerm || activeFilters.group || activeFilters.service || activeFilters.region || activeFilters.profile) && group && group.name !== 'Default' ? ` · <span class="connection-group-label">${escapeHtml(group.name)}</span>` : ''}</div>
         ${notesLine}
       </div>
       <button class="connection-duplicate" data-name="${escapeHtml(conn.name)}" title="Duplicate">⧉</button>
@@ -864,7 +1003,7 @@ function toggleFavorite(name) {
   const conn = savedConnections.find(c => c.name === name);
   if (conn) {
     conn.favorite = !conn.favorite;
-    localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+    safeSetItem('ssmConnections', JSON.stringify(savedConnections));
     renderGroupsWithConnections();
   }
 }
@@ -874,7 +1013,7 @@ function moveConnectionToGroup(connectionName, newGroupId) {
   const conn = savedConnections.find(c => c.name === connectionName);
   if (conn) {
     conn.groupId = newGroupId === 'ungrouped' ? ensureDefaultGroupId() : newGroupId;
-    localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+    safeSetItem('ssmConnections', JSON.stringify(savedConnections));
     renderGroupsWithConnections();
   }
 }
@@ -906,11 +1045,11 @@ function reorderConnection(draggedName, targetName, insertBefore) {
 
   // Switch to manual sort
   sortPreference = 'manual';
-  localStorage.setItem('ssmSortPreference', 'manual');
+  safeSetItem('ssmSortPreference', 'manual');
   const sortSelect = document.getElementById('sortSelect');
   if (sortSelect) sortSelect.value = 'manual';
 
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
 }
 
@@ -920,7 +1059,7 @@ function loadConnection(name) {
 
   // Update last used timestamp
   conn.lastUsedAt = Date.now();
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
 
   // Track the original name for editing
   editingConnectionName = conn.name;
@@ -936,10 +1075,28 @@ function loadConnection(name) {
   if (serviceRadio) {
     serviceRadio.checked = true;
     selectedService = conn.service;
-    document.getElementById('remotePort').value = serviceConfig[conn.service].remotePort;
+    if (conn.service === 'custom') {
+      document.getElementById('remotePort').value = conn.portNumber || '';
+      document.getElementById('remotePort').readOnly = false;
+      document.getElementById('remotePort').classList.remove('readonly', 'hidden');
+      document.getElementById('remotePortDisplay').classList.add('hidden');
+      document.getElementById('customServiceGroup').classList.remove('hidden');
+      document.getElementById('customServiceName').value = conn.customServiceName || '';
+    } else {
+      document.getElementById('remotePort').value = serviceConfig[conn.service].remotePort;
+      document.getElementById('remotePort').readOnly = true;
+      document.getElementById('remotePort').classList.add('readonly', 'hidden');
+      document.getElementById('remotePortDisplay').textContent = serviceConfig[conn.service].remotePort;
+      document.getElementById('remotePortDisplay').classList.remove('hidden');
+      document.getElementById('customServiceGroup').classList.add('hidden');
+      document.getElementById('customServiceName').value = '';
+    }
     // Use saved local port if available, otherwise use default
-    document.getElementById('localPort').value = conn.localPortNumber || serviceConfig[conn.service].localPort;
+    document.getElementById('localPort').value = conn.localPortNumber || serviceConfig[conn.service].localPort || '';
   }
+
+  // Check for port conflicts after loading
+  checkLocalPortConflict(conn.localPortNumber);
 
   // Populate notes
   document.getElementById('connectionNotes').value = conn.notes || '';
@@ -1023,7 +1180,7 @@ function bulkDeleteSelected() {
   if (!confirm(`Delete ${count} connection${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
 
   savedConnections = savedConnections.filter(c => !selectedConnections.has(c.name));
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   selectedConnections.clear();
   updateBulkActionBar();
   renderGroupsWithConnections();
@@ -1053,7 +1210,7 @@ function confirmBulkMove() {
       c.groupId = groupId;
     }
   });
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   const count = selectedConnections.size;
   selectedConnections.clear();
   document.getElementById('bulkMoveModal').classList.add('hidden');
@@ -1163,16 +1320,36 @@ function setupEventListeners() {
     radio.addEventListener('change', (e) => {
       selectedService = e.target.value;
       const config = serviceConfig[selectedService];
-      document.getElementById('remotePort').value = config.remotePort;
-      document.getElementById('localPort').value = config.localPort;
+      if (selectedService === 'custom') {
+        document.getElementById('remotePort').value = '';
+        document.getElementById('remotePort').readOnly = false;
+        document.getElementById('remotePort').classList.remove('readonly', 'hidden');
+        document.getElementById('remotePortDisplay').classList.add('hidden');
+        document.getElementById('customServiceGroup').classList.remove('hidden');
+        document.getElementById('customServiceName').focus();
+      } else {
+        document.getElementById('remotePort').value = config.remotePort;
+        document.getElementById('remotePort').readOnly = true;
+        document.getElementById('remotePort').classList.add('readonly', 'hidden');
+        document.getElementById('remotePortDisplay').textContent = config.remotePort;
+        document.getElementById('remotePortDisplay').classList.remove('hidden');
+        document.getElementById('customServiceGroup').classList.add('hidden');
+        document.getElementById('customServiceName').value = '';
+        document.getElementById('localPort').value = config.localPort;
+      }
+      checkLocalPortConflict(document.getElementById('localPort').value);
     });
+  });
+
+  document.getElementById('localPort').addEventListener('input', (e) => {
+    checkLocalPortConflict(e.target.value);
   });
 
   const timeoutSelect = document.getElementById('sessionTimeout');
   if (timeoutSelect) {
     timeoutSelect.addEventListener('change', () => {
       const timeoutValue = getSelectedSessionTimeoutValue();
-      localStorage.setItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
+      safeSetItem(DEFAULT_TIMEOUT_STORAGE_KEY, timeoutValue);
       updateSessionTimerDefaultDisplay();
     });
   }
@@ -1250,14 +1427,39 @@ function setupEventListeners() {
     sortSelect.value = sortPreference;
     sortSelect.addEventListener('change', (e) => {
       sortPreference = e.target.value;
-      localStorage.setItem('ssmSortPreference', sortPreference);
+      safeSetItem('ssmSortPreference', sortPreference);
       renderGroupsWithConnections();
     });
   }
 
   // Export/Import buttons
-  document.getElementById('exportBtn').addEventListener('click', exportConnections);
-  document.getElementById('importBtn').addEventListener('click', importConnections);
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    document.getElementById('overflowMenu').classList.add('hidden');
+    exportConnections();
+  });
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('overflowMenu').classList.add('hidden');
+    importConnections();
+  });
+
+  // Overflow menu toggle
+  document.getElementById('footerOverflowBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('overflowMenu').classList.toggle('hidden');
+  });
+  document.addEventListener('click', () => {
+    document.getElementById('overflowMenu').classList.add('hidden');
+  });
+
+  // Shortcuts modal
+  document.getElementById('closeShortcuts').addEventListener('click', () => {
+    document.getElementById('shortcutsModal').classList.add('hidden');
+  });
+  document.getElementById('shortcutsModal').addEventListener('click', (e) => {
+    if (e.target.id === 'shortcutsModal') {
+      document.getElementById('shortcutsModal').classList.add('hidden');
+    }
+  });
 
   // Delete confirmation modal
   document.getElementById('closeDeleteModal').addEventListener('click', closeDeleteModal);
@@ -1267,27 +1469,39 @@ function setupEventListeners() {
     if (e.target.id === 'deleteModal') closeDeleteModal();
   });
 
+  // Inline validation on blur (B1)
+  document.getElementById('targetInstance').addEventListener('blur', (e) => {
+    const val = e.target.value.trim();
+    if (val && !validationPatterns.instanceId.test(val)) {
+      e.target.classList.add('field-error');
+    } else {
+      e.target.classList.remove('field-error');
+    }
+  });
+  document.getElementById('serviceHost').addEventListener('blur', (e) => {
+    const val = e.target.value.trim();
+    if (val && !validationPatterns.hostname.test(val)) {
+      e.target.classList.add('field-error');
+    } else {
+      e.target.classList.remove('field-error');
+    }
+  });
+  document.getElementById('localPort').addEventListener('blur', (e) => {
+    const val = e.target.value.trim();
+    if (val && !validationPatterns.port(val)) {
+      e.target.classList.add('field-error');
+    } else {
+      e.target.classList.remove('field-error');
+    }
+  });
+
   // Copy URL button
   document.getElementById('copyUrlBtn').addEventListener('click', copyActiveUrl);
 
   // Open URL button
   document.getElementById('openUrlBtn').addEventListener('click', openActiveUrl);
 
-  window.electronAPI.onSessionClosed((event, data) => {
-    isSessionActive = false;
-    connectionState = 'idle';
-    activeConnectionName = null;
-    activeConnectionConfig = null;
-    updateSessionButton();
-    stopSessionTimer();
-    renderGroupsWithConnections(); // Re-render to remove active indicator
-    showToast('Session closed');
-
-    if (terminal) {
-      terminal.writeln('\x1b[1;33m→ Session closed by server\x1b[0m');
-    }
-    updateTerminalStatus('disconnected');
-  });
+  // Session IPC listeners are registered once in setupTerminal()
 }
 
 // Modal Functions
@@ -1335,14 +1549,39 @@ function openDeleteModal(connectionName) {
 function closeDeleteModal() {
   document.getElementById('deleteModal').classList.add('hidden');
   pendingDeleteConnection = null;
+  pendingDeleteGroupId = null;
+  // Reset message to default connection format
+  document.querySelector('#deleteModal .delete-message').innerHTML = 'Are you sure you want to delete "<span id="deleteConnectionName"></span>"?';
 }
 
 function confirmDeleteConnection() {
+  if (pendingDeleteGroupId) {
+    deleteGroup(pendingDeleteGroupId);
+    showToast('Group deleted');
+    closeDeleteModal();
+    return;
+  }
   if (pendingDeleteConnection) {
     deleteConnection(pendingDeleteConnection);
     showToast('Connection deleted');
     closeDeleteModal();
   }
+}
+
+function openDeleteGroupModal(groupId) {
+  const group = connectionGroups.find(g => g.id === groupId);
+  if (!group) return;
+  const count = savedConnections.filter(c => c.groupId === groupId).length;
+  pendingDeleteGroupId = groupId;
+  pendingDeleteConnection = null;
+  document.getElementById('deleteConnectionName').textContent = group.name;
+  const msgEl = document.querySelector('#deleteModal .delete-message');
+  if (count > 0) {
+    msgEl.innerHTML = `Are you sure you want to delete group "<span>${escapeHtml(group.name)}</span>"? Its ${count} connection${count > 1 ? 's' : ''} will be moved to the default group.`;
+  } else {
+    msgEl.innerHTML = `Are you sure you want to delete group "<span>${escapeHtml(group.name)}</span>"?`;
+  }
+  document.getElementById('deleteModal').classList.remove('hidden');
 }
 
 function handleSaveGroup() {
@@ -1378,8 +1617,15 @@ function resetForm() {
     selectedService = firstService.value;
     const config = serviceConfig[selectedService];
     document.getElementById('remotePort').value = config.remotePort;
+    document.getElementById('remotePort').readOnly = true;
+    document.getElementById('remotePort').classList.add('readonly', 'hidden');
+    document.getElementById('remotePortDisplay').textContent = config.remotePort;
+    document.getElementById('remotePortDisplay').classList.remove('hidden');
     document.getElementById('localPort').value = config.localPort;
+    document.getElementById('customServiceGroup').classList.add('hidden');
+    document.getElementById('customServiceName').value = '';
   }
+  document.getElementById('portConflictWarning').classList.add('hidden');
 
   const sessionTimeout = document.getElementById('sessionTimeout');
   if (sessionTimeout) {
@@ -1410,8 +1656,11 @@ function getConnectionConfig() {
   const groupId = document.getElementById('connectionGroup').value || null;
   const notes = document.getElementById('connectionNotes').value.trim();
   const sessionTimeoutMinutes = getSelectedSessionTimeoutMinutes();
+  const customServiceName = selectedService === 'custom'
+    ? document.getElementById('customServiceName').value.trim()
+    : '';
 
-  return { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes };
+  return { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes, customServiceName };
 }
 
 // Input validation patterns
@@ -1451,6 +1700,18 @@ function validateForm() {
     return false;
   }
 
+  if (selectedService === 'custom') {
+    const customName = document.getElementById('customServiceName').value.trim();
+    if (!customName) {
+      showToast('Please enter a custom service name', 'error');
+      return false;
+    }
+    if (customName.length > 50) {
+      showToast('Custom service name must be 50 characters or less', 'error');
+      return false;
+    }
+  }
+
   if (!target || !host || !region) {
     showToast('Please fill all required fields', 'error');
     return false;
@@ -1487,11 +1748,15 @@ function validateForm() {
 function handleSaveConnection() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes } = getConnectionConfig();
+  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes, customServiceName } = getConnectionConfig();
+  const displayName = selectedService === 'custom' && customServiceName
+    ? customServiceName
+    : serviceConfig[selectedService].name;
 
   const config = {
-    name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
+    name: name || `${displayName} - ${new Date().toLocaleString()}`,
     service: selectedService,
+    customServiceName: selectedService === 'custom' ? customServiceName : '',
     groupId,
     target,
     host,
@@ -1507,21 +1772,37 @@ function handleSaveConnection() {
 }
 
 async function handleSessionToggle() {
-  if (isSessionActive) {
-    await stopSession();
+  const currentId = getEditingConnectionId();
+  if (currentId && sessions.has(currentId)) {
+    await stopSession(currentId);
   } else {
     await startSession();
   }
 }
 
+function getEditingConnectionId() {
+  if (!editingConnectionName) return null;
+  const conn = savedConnections.find(c => c.name === editingConnectionName);
+  return conn?.id || null;
+}
+
 async function startSession() {
   if (!validateForm()) return;
 
-  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes } = getConnectionConfig();
+  if (sessions.size >= MAX_SESSIONS) {
+    showToast('Maximum 5 sessions reached', 'error');
+    return;
+  }
+
+  const { profile, region, target, host, name, groupId, notes, sessionTimeoutMinutes, customServiceName } = getConnectionConfig();
+  const displayName = selectedService === 'custom' && customServiceName
+    ? customServiceName
+    : serviceConfig[selectedService].name;
 
   const config = {
-    name: name || `${serviceConfig[selectedService].name} - ${new Date().toLocaleString()}`,
+    name: name || `${displayName} - ${new Date().toLocaleString()}`,
     service: selectedService,
+    customServiceName: selectedService === 'custom' ? customServiceName : '',
     groupId,
     target,
     host,
@@ -1533,24 +1814,38 @@ async function startSession() {
     sessionTimeoutMinutes
   };
 
+  // Auto-save (assigns config.id if not already set)
+  saveConnection(config, false);
+
+  // Guard: already have a session for this connection
+  if (sessions.has(config.id)) {
+    setActiveTab(config.id);
+    document.getElementById('terminalModal').classList.remove('hidden', 'minimized');
+    return;
+  }
+
+  // Create session entry (terminal/fitAddon/mountEl filled in by showTerminal)
+  sessions.set(config.id, {
+    state: 'connecting',
+    config,
+    terminal: null,
+    fitAddon: null,
+    mountEl: null,
+    timerInterval: null,
+    sessionStartTime: null,
+    sessionDuration: config.sessionTimeoutMinutes == null ? null : config.sessionTimeoutMinutes * 60 * 1000,
+    sessionId: null
+  });
+
+  renderGroupsWithConnections(); // show connecting dot
+  showTerminal(config);
+  updateSessionButton();
+
   const connectBtn = document.getElementById('connectBtn');
   const saveBtn = document.getElementById('saveBtn');
-
   connectBtn.disabled = true;
   saveBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
-
-  // Set connecting state and show in sidebar
-  connectionState = 'connecting';
-  activeConnectionName = config.name;
-  renderGroupsWithConnections();
-
-  // Show terminal modal
-  showTerminal(config);
-
-  sessionDuration = config.sessionTimeoutMinutes == null
-    ? null
-    : config.sessionTimeoutMinutes * 60 * 1000;
 
   const result = await window.electronAPI.startSSMSession(config);
 
@@ -1558,95 +1853,106 @@ async function startSession() {
   saveBtn.disabled = false;
 
   if (result.success) {
-    isSessionActive = true;
-    connectionState = 'connected';
-    activeConnectionName = config.name;
-    activeConnectionConfig = config;
+    const sess = sessions.get(config.id);
+    if (sess) {
+      sess.state = 'connected';
+      sess.sessionId = result.sessionId;
+    }
+    updateTabDot(config.id, 'connected');
+    updateTerminalFooter(config.id);
     updateSessionButton();
-    saveConnection(config, false);
-    renderGroupsWithConnections(); // Re-render to show active indicator
-    startSessionTimer(); // Start countdown timer
-
-    // Update terminal session info
-    if (result.sessionId) {
-      document.getElementById('terminalSessionId').textContent = `Session: ${result.sessionId.substring(0, 20)}...`;
-    }
+    renderGroupsWithConnections();
+    startSessionTimer(config.id);
   } else {
-    connectionState = 'error';
-    activeConnectionConfig = null;
-    connectBtn.textContent = 'Start Session';
+    const sess = sessions.get(config.id);
+    if (sess) sess.state = 'error';
+    updateTabDot(config.id, 'error');
     showToast('Connection failed: ' + (result.error || 'Unknown error'), 'error');
-    updateTerminalStatus('error');
-    renderGroupsWithConnections(); // Re-render to show error indicator
-    if (terminal) {
-      terminal.writeln(`\x1b[1;31m✗ Error: ${result.error || 'Unknown error'}\x1b[0m`);
-    }
+    sessions.get(config.id)?.terminal?.writeln(`\x1b[1;31m✗ Error: ${result.error || 'Unknown error'}\x1b[0m`);
+    updateSessionButton();
+    renderGroupsWithConnections();
   }
 }
 
-async function stopSession() {
-  const connectBtn = document.getElementById('connectBtn');
-  connectBtn.disabled = true;
-  connectBtn.textContent = 'Stopping...';
+async function stopSession(id) {
+  const sess = sessions.get(id);
+  if (!sess) return;
 
-  updateTerminalStatus('disconnecting');
-  if (terminal) {
-    terminal.writeln('\x1b[1;33m→ Stopping session...\x1b[0m');
-  }
+  sess.state = 'disconnecting';
+  updateTabDot(id, 'disconnecting');
+  sess.terminal?.writeln('\x1b[1;33m→ Stopping session...\x1b[0m');
 
-  const result = await window.electronAPI.stopSSMSession();
-
-  connectBtn.disabled = false;
+  const result = await window.electronAPI.stopSSMSession(id);
 
   if (result.success) {
-    isSessionActive = false;
-    connectionState = 'idle';
-    activeConnectionName = null;
-    activeConnectionConfig = null;
-    updateSessionButton();
-    stopSessionTimer();
-    renderGroupsWithConnections(); // Re-render to remove active indicator
+    cleanupSession(id);
     showToast('Session stopped');
-
-    if (terminal) {
-      terminal.writeln('\x1b[1;32m✓ Session terminated\x1b[0m');
-    }
-    updateTerminalStatus('disconnected');
   } else {
-    updateSessionButton();
     showToast('Failed to stop session', 'error');
   }
+  updateSessionButton();
+}
+
+async function stopAllSessions() {
+  if (sessions.size === 0) return;
+  await window.electronAPI.stopSSMSession('__all__');
+  [...sessions.keys()].forEach(id => cleanupSession(id));
+  updateSessionButton();
+}
+
+function cleanupSession(id) {
+  const sess = sessions.get(id);
+  if (!sess) return;
+
+  stopSessionTimer(id);
+  sess.terminal?.dispose();
+  sess.mountEl?.remove();
+
+  document.querySelector(`#terminalTabs .terminal-tab[data-id="${CSS.escape(id)}"]`)?.remove();
+
+  sessions.delete(id);
+
+  // If this was the active tab, switch to another or hide modal
+  if (activeTabId === id) {
+    const remaining = [...sessions.keys()];
+    if (remaining.length > 0) {
+      setActiveTab(remaining[0]);
+    } else {
+      activeTabId = null;
+      hideTerminal();
+    }
+  }
+
+  renderGroupsWithConnections();
+}
+
+function handleSessionClosed(id) {
+  cleanupSession(id);
+  showToast('Session closed');
+  updateSessionButton();
 }
 
 function updateSessionButton() {
   const connectBtn = document.getElementById('connectBtn');
   const saveBtn = document.getElementById('saveBtn');
 
-  // Get current connection name from form
-  const currentFormConnection = document.getElementById('connectionName').value.trim() || editingConnectionName;
+  const id = getEditingConnectionId();
+  const sess = id ? sessions.get(id) : null;
+  const isActive = sess && (sess.state === 'connected' || sess.state === 'connecting');
 
-  // Check if viewing the active connection
-  const isViewingActiveConnection = isSessionActive && activeConnectionName &&
-    (currentFormConnection === activeConnectionName || editingConnectionName === activeConnectionName);
-
-  if (isSessionActive) {
-    if (isViewingActiveConnection) {
-      // Viewing the active connection - show Stop Session
-      connectBtn.textContent = 'Stop Session';
-      connectBtn.classList.add('btn-stop');
-      connectBtn.classList.remove('btn-disabled-session');
-      connectBtn.disabled = false;
-      saveBtn.disabled = false;
-    } else {
-      // Viewing a different connection while session is active
-      connectBtn.textContent = `Session active: ${activeConnectionName}`;
-      connectBtn.classList.remove('btn-stop');
-      connectBtn.classList.add('btn-disabled-session');
-      connectBtn.disabled = true;
-      saveBtn.disabled = false; // Still allow saving other connections
-    }
+  if (isActive) {
+    connectBtn.textContent = 'Stop Session';
+    connectBtn.classList.add('btn-stop');
+    connectBtn.classList.remove('btn-disabled-session');
+    connectBtn.disabled = false;
+    saveBtn.disabled = false;
+  } else if (sessions.size >= MAX_SESSIONS) {
+    connectBtn.textContent = 'Max sessions reached';
+    connectBtn.classList.remove('btn-stop');
+    connectBtn.classList.add('btn-disabled-session');
+    connectBtn.disabled = true;
+    saveBtn.disabled = false;
   } else {
-    // No active session
     connectBtn.textContent = 'Start Session';
     connectBtn.classList.remove('btn-stop', 'btn-disabled-session');
     connectBtn.disabled = false;
@@ -1654,83 +1960,82 @@ function updateSessionButton() {
   }
 }
 
-
 async function checkSessionStatus() {
   const result = await window.electronAPI.checkSessionStatus();
-  if (result.active) {
-    isSessionActive = true;
-    updateSessionButton();
-    const localPort = document.getElementById('localPort').value || '5601';
+  if (!result.sessions || result.sessions.length === 0) return;
 
-    // Show terminal if session is active
-    showTerminal({ localPortNumber: localPort });
-    updateTerminalStatus('connected');
-    if (result.sessionId) {
-      document.getElementById('terminalSessionId').textContent = `Session: ${result.sessionId.substring(0, 20)}...`;
+  // Restore any sessions that were active before a page reload
+  result.sessions.forEach(({ id, sessionId, state }) => {
+    if (!sessions.has(id)) {
+      const conn = savedConnections.find(c => c.id === id);
+      if (conn) {
+        sessions.set(id, {
+          state,
+          config: conn,
+          terminal: null, fitAddon: null, mountEl: null,
+          timerInterval: null, sessionStartTime: null, sessionDuration: null,
+          sessionId
+        });
+        showTerminal(conn);
+        updateTabDot(id, state);
+        updateTerminalFooter(id);
+      }
     }
-  }
+  });
+  updateSessionButton();
+  renderGroupsWithConnections();
 }
 
 // Session Timer Functions
-function startSessionTimer() {
-  sessionStartTime = Date.now();
-  updateTimerDisplay();
-
-  if (sessionDuration == null) {
-    return;
-  }
-
-  // Update timer every second
-  timerInterval = setInterval(() => {
-    updateTimerDisplay();
-  }, 1000);
+function startSessionTimer(id) {
+  const sess = sessions.get(id);
+  if (!sess) return;
+  sess.sessionStartTime = Date.now();
+  updateTimerDisplay(id);
+  if (sess.sessionDuration == null) return;
+  sess.timerInterval = setInterval(() => updateTimerDisplay(id), 1000);
 }
 
-function stopSessionTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+function stopSessionTimer(id) {
+  const sess = sessions.get(id);
+  if (!sess) return;
+  if (sess.timerInterval) {
+    clearInterval(sess.timerInterval);
+    sess.timerInterval = null;
   }
-  sessionStartTime = null;
-  updateSessionTimerDefaultDisplay();
+  sess.sessionStartTime = null;
 }
 
-function updateTimerDisplay() {
-  if (!sessionStartTime) return;
+function updateTimerDisplay(id) {
+  if (id !== activeTabId) return;
+  const sess = sessions.get(id);
+  if (!sess || !sess.sessionStartTime) return;
 
   const timerValue = document.getElementById('timerValue');
   const timerContainer = document.getElementById('sessionTimer');
 
-  if (sessionDuration == null) {
+  if (sess.sessionDuration == null) {
     if (timerValue) timerValue.textContent = 'No timeout';
     if (timerContainer) timerContainer.classList.remove('warning', 'danger');
     return;
   }
 
-  const elapsed = Date.now() - sessionStartTime;
-  const remaining = Math.max(0, sessionDuration - elapsed);
+  const elapsed = Date.now() - sess.sessionStartTime;
+  const remaining = Math.max(0, sess.sessionDuration - elapsed);
 
   const minutes = Math.floor(remaining / 60000);
   const seconds = Math.floor((remaining % 60000) / 1000);
 
-  if (timerValue) {
-    timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
+  if (timerValue) timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-  // Update timer styling based on remaining time
   if (timerContainer) {
-    timerContainer.classList.remove('warning', 'danger');
-
-    if (remaining <= 60000) { // Less than 1 minute
-      timerContainer.classList.add('danger');
-    } else if (remaining <= 180000) { // Less than 3 minutes
-      timerContainer.classList.add('warning');
-    }
+    timerContainer.classList.toggle('warning', remaining < 120000 && remaining > 60000);
+    timerContainer.classList.toggle('danger', remaining <= 60000);
   }
 
-  // Session expired
-  if (remaining <= 0) {
-    stopSessionTimer();
+  if (remaining === 0) {
+    stopSessionTimer(id);
+    stopSession(id);
   }
 }
 
@@ -1751,19 +2056,53 @@ function showToast(message, type = 'info') {
   }, 2500);
 }
 
+// Port conflict detection
+function checkLocalPortConflict(portStr) {
+  const warningEl = document.getElementById('portConflictWarning');
+  if (!warningEl) return;
+
+  const port = portStr ? portStr.trim() : '';
+  if (!port) {
+    warningEl.classList.add('hidden');
+    document.getElementById('localPort')?.classList.remove('port-conflict');
+    return;
+  }
+
+  // Find connections with the same local port, excluding current connection being edited
+  const conflicts = savedConnections.filter(c => {
+    if (c.localPortNumber !== port) return false;
+    // Exclude the connection currently being edited
+    if (editingConnectionName && c.name === editingConnectionName) return false;
+    return true;
+  });
+
+  const localPortInput = document.getElementById('localPort');
+  if (conflicts.length === 0) {
+    warningEl.classList.add('hidden');
+    if (localPortInput) localPortInput.classList.remove('port-conflict');
+  } else {
+    const name = escapeHtml(conflicts[0].name);
+    const extra = conflicts.length > 1 ? ` +${conflicts.length - 1} more` : '';
+    warningEl.textContent = `Also used by: ${conflicts[0].name}${conflicts.length > 1 ? ` +${conflicts.length - 1} more` : ''}`;
+    warningEl.classList.remove('hidden');
+    if (localPortInput) localPortInput.classList.add('port-conflict');
+  }
+}
+
 // Copy Active URL to clipboard
 function copyActiveUrl() {
-  if (!activeConnectionConfig) {
+  const activeConfig = sessions.get(activeTabId)?.config;
+  if (!activeConfig) {
     showToast('No active session', 'error');
     return;
   }
 
-  const service = activeConnectionConfig.service;
-  const port = activeConnectionConfig.localPortNumber;
+  const service = activeConfig.service;
+  const port = activeConfig.localPortNumber;
   const config = serviceConfig[service];
 
   if (!config || !config.urlTemplate) {
-    showToast('Could not generate URL', 'error');
+    showToast('No URL available for this service type', 'error');
     return;
   }
 
@@ -1786,17 +2125,18 @@ function copyActiveUrl() {
 
 // Open Active URL in browser
 function openActiveUrl() {
-  if (!activeConnectionConfig) {
+  const activeConfig = sessions.get(activeTabId)?.config;
+  if (!activeConfig) {
     showToast('No active session', 'error');
     return;
   }
 
-  const service = activeConnectionConfig.service;
-  const port = activeConnectionConfig.localPortNumber;
+  const service = activeConfig.service;
+  const port = activeConfig.localPortNumber;
   const config = serviceConfig[service];
 
   if (!config || !config.urlTemplate) {
-    showToast('Could not generate URL', 'error');
+    showToast('No URL available for this service type', 'error');
     return;
   }
 
@@ -1825,7 +2165,7 @@ function initTheme() {
 }
 
 async function setTheme(theme) {
-  localStorage.setItem('theme', theme);
+  safeSetItem('theme', theme);
 
   // Update button states
   document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -1884,7 +2224,7 @@ async function importConnections() {
         connectionGroups.push(importedGroup);
       }
     });
-    localStorage.setItem('ssmGroups', JSON.stringify(connectionGroups));
+    safeSetItem('ssmGroups', JSON.stringify(connectionGroups));
   }
 
   const defaultGroupId = ensureDefaultGroupId();
@@ -1897,15 +2237,22 @@ async function importConnections() {
       normalizedConn.groupId = defaultGroupId;
     }
 
-    const existingIndex = savedConnections.findIndex(c => c.name === importedConn.name);
+    // Match by id (unique), fall back to name for backward compat with old exports
+    let existingIndex = normalizedConn.id
+      ? savedConnections.findIndex(c => c.id === normalizedConn.id)
+      : -1;
+    if (existingIndex < 0) {
+      existingIndex = savedConnections.findIndex(c => c.name === normalizedConn.name);
+    }
     if (existingIndex >= 0) {
       savedConnections[existingIndex] = normalizedConn;
     } else {
+      if (!normalizedConn.id) normalizedConn.id = generateConnectionId();
       savedConnections.push(normalizedConn);
     }
   });
 
-  localStorage.setItem('ssmConnections', JSON.stringify(savedConnections));
+  safeSetItem('ssmConnections', JSON.stringify(savedConnections));
   renderGroupsWithConnections();
   updateGroupDropdown();
 
@@ -1926,7 +2273,7 @@ function setupKeyboardShortcuts() {
 
     // Escape — close topmost open modal (always works)
     if (e.key === 'Escape') {
-      const modals = ['onboardingModal', 'bulkMoveModal', 'deleteModal', 'groupModal'];
+      const modals = ['shortcutsModal', 'onboardingModal', 'bulkMoveModal', 'deleteModal', 'groupModal'];
       for (const id of modals) {
         const modal = document.getElementById(id);
         if (modal && !modal.classList.contains('hidden')) {
@@ -1955,6 +2302,13 @@ function setupKeyboardShortcuts() {
     // Skip remaining shortcuts when input/textarea/select is focused
     if (isInputFocused) return;
 
+    // ? — show keyboard shortcuts
+    if (e.key === '?' && !isMod) {
+      e.preventDefault();
+      document.getElementById('shortcutsModal').classList.toggle('hidden');
+      return;
+    }
+
     // Cmd/Ctrl+N — new connection
     if (isMod && e.key === 'n') {
       e.preventDefault();
@@ -1978,9 +2332,9 @@ function setupKeyboardShortcuts() {
 
     // Cmd/Ctrl+W — close session/terminal
     if (isMod && e.key === 'w') {
-      if (isSessionActive) {
+      if (sessions.size > 0) {
         e.preventDefault();
-        stopSession().then(() => hideTerminal());
+        stopAllSessions().then(() => hideTerminal());
         return;
       }
     }
@@ -1998,7 +2352,7 @@ function showOnboardingModal() {
   modal.classList.remove('hidden');
 
   document.getElementById('onboardingDismiss').addEventListener('click', () => {
-    localStorage.setItem('ssmOnboardingComplete', 'true');
+    safeSetItem('ssmOnboardingComplete', 'true');
     modal.classList.add('hidden');
   });
 

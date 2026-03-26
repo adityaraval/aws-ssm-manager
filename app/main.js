@@ -8,7 +8,7 @@ const { checkLocalPortAvailability, normalizePortError } = require('./port-utils
 const { buildCommandPath, resolveExecutable } = require('./executable-utils');
 
 let mainWindow;
-let currentSession = null;
+const sessions = new Map(); // key: connection.id, value: SSMSession instance
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -51,9 +51,9 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', async () => {
-  if (currentSession) {
-    await currentSession.stop();
-    currentSession = null;
+  if (sessions.size > 0) {
+    await Promise.all([...sessions.values()].map(s => s.stop()));
+    sessions.clear();
   }
   if (process.platform !== 'darwin') {
     app.quit();
@@ -70,42 +70,63 @@ const isE2ETest = process.env.E2E_TEST === '1';
 
 if (isE2ETest) {
   // --- Mock IPC handlers for E2E testing ---
-  let mockSessionActive = false;
+  const mockSessions = new Map(); // key: config.id, value: { sessionId }
 
   ipcMain.handle('get-profiles', async () => {
     return { success: true, profiles: ['dev', 'staging', 'prod'] };
   });
 
   ipcMain.handle('start-ssm-session', async (event, config) => {
-    mockSessionActive = true;
-    // Send fake terminal output and status after a short delay
+    if (mockSessions.size >= 5) {
+      return { success: false, error: 'Maximum sessions reached' };
+    }
+    if (mockSessions.has(config.id)) {
+      return { success: false, error: 'Session already active for this connection' };
+    }
+    const sessionId = 'test-session-123';
+    mockSessions.set(config.id, { sessionId });
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('session-status', 'connecting');
+        mainWindow.webContents.send('session-status', { id: config.id, status: 'connecting' });
         setTimeout(() => {
           if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('terminal-output', 'Starting session with SessionId: test-session-123\r\n');
-            mainWindow.webContents.send('session-status', 'connected');
+            mainWindow.webContents.send('terminal-output', { id: config.id, text: 'Starting session with SessionId: test-session-123\r\n' });
+            mainWindow.webContents.send('session-status', { id: config.id, status: 'connected' });
           }
         }, 100);
       }
     }, 50);
-    return { success: true, sessionId: 'test-session-123' };
+    return { success: true, sessionId };
   });
 
-  ipcMain.handle('stop-ssm-session', async () => {
-    mockSessionActive = false;
+  ipcMain.handle('stop-ssm-session', async (event, { id }) => {
+    if (id === '__all__') {
+      const ids = [...mockSessions.keys()];
+      mockSessions.clear();
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          ids.forEach(sid => {
+            mainWindow.webContents.send('session-status', { id: sid, status: 'disconnected' });
+            mainWindow.webContents.send('session-closed', { id: sid });
+          });
+        }
+      }, 50);
+      return { success: true };
+    }
+    if (!mockSessions.has(id)) return { success: false, error: 'No active session' };
+    mockSessions.delete(id);
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('session-status', 'disconnected');
-        mainWindow.webContents.send('session-closed', { code: 0 });
+        mainWindow.webContents.send('session-status', { id, status: 'disconnected' });
+        mainWindow.webContents.send('session-closed', { id });
       }
     }, 50);
     return { success: true };
   });
 
   ipcMain.handle('check-session-status', async () => {
-    return { active: mockSessionActive, sessionId: mockSessionActive ? 'test-session-123' : null };
+    const list = [...mockSessions.entries()].map(([id, s]) => ({ id, sessionId: s.sessionId, state: 'connected' }));
+    return { sessions: list };
   });
 
   ipcMain.handle('check-prerequisites', async () => {
@@ -218,8 +239,11 @@ ipcMain.handle('get-profiles', async () => {
 // This app reads existing profiles but doesn't configure new ones (use AWS CLI for that)
 
 ipcMain.handle('start-ssm-session', async (event, config) => {
-  if (currentSession) {
-    return { success: false, error: 'A session is already active' };
+  if (sessions.size >= 5) {
+    return { success: false, error: 'Maximum sessions reached' };
+  }
+  if (sessions.has(config.id)) {
+    return { success: false, error: 'Session already active for this connection' };
   }
 
   const { target, portNumber, localPortNumber, host, region, profile, sessionTimeoutMinutes } = config;
@@ -235,25 +259,23 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     return { success: false, error: localPortCheck.error };
   }
 
-  // Callback to send terminal output to renderer
   const onOutput = (text) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal-output', text);
+      mainWindow.webContents.send('terminal-output', { id: config.id, text });
     }
   };
 
-  // Callback for session status changes
   const onStatus = (status) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('session-status', status);
+      mainWindow.webContents.send('session-status', { id: config.id, status });
       if (status === 'disconnected') {
-        mainWindow.webContents.send('session-closed', { code: 0 });
+        mainWindow.webContents.send('session-closed', { id: config.id });
+        sessions.delete(config.id);
       }
     }
   };
 
-  // Create SSM session using SDK
-  currentSession = new SSMSession({
+  const session = new SSMSession({
     target,
     portNumber,
     localPortNumber,
@@ -262,32 +284,37 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     profile,
     sessionTimeout
   }, onOutput, onStatus);
+  sessions.set(config.id, session);
 
-  const result = await currentSession.start();
+  const result = await session.start();
 
   if (!result.success) {
     result.error = normalizePortError(result.error, localPortNumber);
-    currentSession = null;
+    sessions.delete(config.id);
   }
 
   return result;
 });
 
-ipcMain.handle('stop-ssm-session', async () => {
-  if (currentSession) {
-    await currentSession.stop();
-    currentSession = null;
+ipcMain.handle('stop-ssm-session', async (event, { id }) => {
+  if (id === '__all__') {
+    await Promise.all([...sessions.values()].map(s => s.stop()));
+    sessions.clear();
     return { success: true };
   }
-  return { success: false, error: 'No active session' };
+  const session = sessions.get(id);
+  if (!session) return { success: false, error: 'No active session' };
+  await session.stop();
+  sessions.delete(id);
+  return { success: true };
 });
 
 ipcMain.handle('check-session-status', async () => {
-  if (currentSession) {
-    const status = currentSession.getStatus();
-    return { active: status.connected, sessionId: status.sessionId };
-  }
-  return { active: false };
+  const list = [...sessions.entries()].map(([id, s]) => {
+    const status = s.getStatus();
+    return { id, sessionId: status.sessionId, state: status.connected ? 'connected' : 'connecting' };
+  });
+  return { sessions: list };
 });
 
 // Dark Mode handlers
@@ -359,15 +386,23 @@ const importValidators = {
   },
   profile: /^[a-zA-Z0-9._-]{1,64}$/,
   hostname: /^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$/,
-  service: /^(opensearch|aurora|elasticache|rabbitmq)$/,
+  service: /^(opensearch|aurora|elasticache|rabbitmq|custom)$/,
   color: /^#[0-9a-fA-F]{6}$/,
   name: /^.{1,100}$/,  // Allow any characters but limit length
-  groupId: /^[0-9]+$/
+  groupId: /^[0-9]+$/,
+  connectionId: /^conn-[0-9]+-[a-z0-9]{1,15}$/
 };
 
 // Sanitize a connection object
 function sanitizeConnection(conn) {
   const sanitized = {};
+
+  // Optional connection id (unique identifier)
+  if (typeof conn.id === 'string' && importValidators.connectionId.test(conn.id)) {
+    sanitized.id = conn.id;
+  } else {
+    sanitized.id = null; // Will be assigned on import merge
+  }
 
   // Required fields with validation
   if (typeof conn.name === 'string' && importValidators.name.test(conn.name)) {
@@ -404,6 +439,17 @@ function sanitizeConnection(conn) {
     sanitized.service = conn.service;
   } else {
     return null;
+  }
+
+  // Custom service name (required when service === 'custom')
+  if (conn.service === 'custom') {
+    if (typeof conn.customServiceName === 'string' && conn.customServiceName.length > 0 && conn.customServiceName.length <= 50) {
+      sanitized.customServiceName = conn.customServiceName.substring(0, 50);
+    } else {
+      return null; // custom service requires a name
+    }
+  } else {
+    sanitized.customServiceName = '';
   }
 
   // Port numbers

@@ -4,6 +4,40 @@
   box-sizing: border-box;
 }
 
+.hidden {
+  display: none !important;
+}
+
+/* Font */
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/dm-sans-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/dm-sans-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/dm-sans-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('fonts/dm-sans-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
   --sidebar-width: 280px;
@@ -16,6 +50,8 @@
   --text-muted: #a3a3a3;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
+  --accent-warm: #f97316;
+  --accent-warm-hover: #ea580c;
   --success: #22c55e;
   --danger: #ef4444;
   --modal-bg: #ffffff;
@@ -33,13 +69,15 @@
     --text-muted: #737373;
     --accent: #3b82f6;
     --accent-hover: #2563eb;
+    --accent-warm: #fb923c;
+    --accent-warm-hover: #f97316;
     --modal-bg: #1f1f1f;
     --input-bg: #2a2a2a;
   }
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 13px;
@@ -336,7 +374,7 @@ body {
 .search-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
 }
 
 .search-input::placeholder {
@@ -689,7 +727,7 @@ body {
 
 .connection-item:hover .connection-notes-preview,
 .connection-item.selected .connection-notes-preview {
-  display: block;
+  display: none;
 }
 
 /* Favorite Button */
@@ -1033,27 +1071,27 @@ body {
 .form-container {
   max-width: 560px;
   margin: 0 auto;
-  padding: 60px 40px;
+  padding: 24px 32px;
 }
 
 .form-header {
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .form-header h1 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .form-header p {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .form-group label {
@@ -1067,7 +1105,7 @@ body {
 .form-input,
 .form-select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   font-size: 13px;
@@ -1080,7 +1118,18 @@ body {
 .form-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* Inline validation error (B1) */
+.form-input.field-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.form-input.field-error:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
 }
 
 .form-input.readonly {
@@ -1151,7 +1200,7 @@ body {
 /* Service Options */
 .service-options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
 }
 
@@ -1168,13 +1217,13 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 10px 8px;
+  gap: 3px;
+  padding: 8px 6px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-primary);
   transition: all 0.15s;
-  height: 70px;
+  height: 60px;
 }
 
 .service-card:hover {
@@ -1212,37 +1261,39 @@ body {
 }
 
 .btn-save {
-  flex: 1;
-  padding: 12px 24px;
-  background: var(--bg-secondary);
+  padding: 12px 20px;
+  background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 
 .btn-save:hover {
-  background: var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 
 .btn-connect {
   flex: 1;
   padding: 12px 24px;
-  background: var(--accent);
+  background: var(--accent-warm);
   border: none;
   border-radius: 6px;
   color: white;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .btn-connect:hover {
-  background: var(--accent-hover);
+  background: var(--accent-warm-hover);
 }
 
 .btn-connect.btn-stop {
@@ -1623,6 +1674,65 @@ body {
   height: 100%;
 }
 
+/* Terminal tabs */
+.terminal-tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--terminal-bg, #0f172a);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  min-height: 32px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.terminal-tabs:empty {
+  display: none;
+}
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+  user-select: none;
+}
+.terminal-tab:hover {
+  color: #94a3b8;
+}
+.terminal-tab.active {
+  color: #e2e8f0;
+  border-bottom-color: var(--tab-color, #22c55e);
+}
+.terminal-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tab-color, #22c55e);
+  flex-shrink: 0;
+}
+.terminal-tab-close {
+  background: none;
+  border: none;
+  color: #475569;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-left: 2px;
+}
+.terminal-tab-close:hover {
+  color: #94a3b8;
+}
+/* Per-session xterm mount points */
+.terminal-mount {
+  width: 100%;
+  height: 100%;
+}
+
 .terminal-footer {
   display: flex;
   align-items: center;
@@ -1814,4 +1924,322 @@ body {
 
 .onboarding-link:hover {
   text-decoration: underline;
+}
+
+/* Port conflict warning */
+.port-conflict-warning {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-input.port-conflict {
+  border-color: #d97706;
+}
+
+.form-input.port-conflict:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
+}
+
+[data-theme="dark"] .form-input.port-conflict {
+  border-color: #f59e0b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .form-input.port-conflict {
+    border-color: #f59e0b;
+  }
+}
+
+/* Custom service type */
+.service-icon-custom {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--text-secondary);
+}
+
+.custom-service-group {
+  margin-top: 8px;
+}
+
+.custom-service-group input {
+  width: 100%;
+}
+
+/* Custom service icon in connection list */
+.connection-icon-custom-small {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* Custom service badge in connection name */
+.connection-custom-service {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+/* Required field indicators (B6) */
+.required-dot {
+  color: var(--accent-warm);
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* Drag handle (D13) */
+.connection-drag-handle {
+  opacity: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  cursor: grab;
+  padding: 2px;
+  flex-shrink: 0;
+  letter-spacing: -1px;
+  line-height: 1;
+  user-select: none;
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.connection-item:hover .connection-drag-handle {
+  opacity: 0.6;
+}
+
+.connection-item:active .connection-drag-handle {
+  cursor: grabbing;
+}
+
+.connection-item.bulk-mode .connection-drag-handle {
+  display: none;
+}
+
+/* Delete button more spacing (D12) */
+.connection-delete {
+  margin-left: 4px;
+}
+
+.connection-duplicate {
+  margin-left: auto;
+}
+
+/* Remote port display badge (B7) */
+.remote-port-display {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+/* Sidebar footer overflow menu (A2) */
+.footer-actions-row {
+  display: flex;
+  gap: 6px;
+}
+
+.footer-overflow-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  flex-shrink: 0;
+  padding: 10px 0;
+  background: linear-gradient(to bottom, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+.footer-overflow-btn:hover {
+  background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--border-color) 100%);
+  border-color: var(--text-muted);
+}
+
+.overflow-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--modal-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.overflow-menu.hidden {
+  display: none;
+}
+
+.overflow-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s;
+  text-align: left;
+}
+
+.overflow-menu-item:hover {
+  background: var(--bg-secondary);
+}
+
+.overflow-menu-item svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Keyboard shortcuts modal (D14) */
+.shortcuts-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.shortcuts-modal.hidden {
+  display: none;
+}
+
+.shortcuts-content {
+  background: var(--modal-bg);
+  border-radius: 12px;
+  width: 360px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.shortcuts-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.shortcuts-body {
+  padding: 16px 20px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.shortcut-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.shortcut-keys {
+  display: flex;
+  gap: 4px;
+}
+
+.shortcut-key {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Toast offset when terminal is visible (E15) */
+.toast-container.terminal-visible {
+  bottom: 320px;
+}
+
+.toast-container.terminal-minimized {
+  bottom: 64px;
+}
+
+/* Empty state CTA (A4) */
+
+/* Empty group state (C5) */
+.empty-group-state {
+  padding: 8px 16px 8px 52px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Group label in connection meta (F17) */
+.connection-group-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: inline;
+}
+
+/* Brand icon SVG */
+.brand-icon-svg {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-icon-svg svg {
+  color: white;
 }

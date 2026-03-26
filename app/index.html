@@ -17,7 +17,11 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <div class="brand-icon">⚡</div>
+        <div class="brand-icon-svg">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
         <div class="brand-info">
           <div class="brand-name">SSM Manager</div>
           <div class="brand-version">v1.0.0</div>
@@ -80,6 +84,7 @@
             <option value="aurora">Aurora</option>
             <option value="elasticache">ElastiCache</option>
             <option value="rabbitmq">Amazon MQ</option>
+            <option value="custom">Custom</option>
           </select>
         </div>
         <div class="filter-row">
@@ -136,37 +141,44 @@
 
       <div class="sidebar-footer">
         <div class="footer-actions">
-          <button id="importBtn" class="footer-action-btn" title="Import Connections">
-            <span class="footer-action-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                <path d="M12 4v12" />
-                <path d="M8 12l4 4 4-4" />
+          <div class="footer-actions-row">
+            <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary"
+              title="Create New Connection (Cmd+N)" style="flex:1">
+              <span class="footer-action-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 8v8" />
+                  <path d="M8 12h8" />
+                </svg>
+              </span>
+              <span class="footer-action-text">New connection</span>
+            </button>
+            <div id="footerOverflowBtn" class="footer-overflow-btn" title="More actions">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="5" r="1.5"/>
+                <circle cx="12" cy="12" r="1.5"/>
+                <circle cx="12" cy="19" r="1.5"/>
               </svg>
-            </span>
-            <span class="footer-action-text">Import connections...</span>
-          </button>
-          <button id="exportBtn" class="footer-action-btn" title="Export Connections">
-            <span class="footer-action-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                <path d="M12 4v12" />
-                <path d="M8 8l4-4 4 4" />
-              </svg>
-            </span>
-            <span class="footer-action-text">Export connections...</span>
-          </button>
-          <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary"
-            title="Create New Connection (Cmd+N)">
-            <span class="footer-action-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v8" />
-                <path d="M8 12h8" />
-              </svg>
-            </span>
-            <span class="footer-action-text">Create connection...</span>
-          </button>
+              <div id="overflowMenu" class="overflow-menu hidden">
+                <button id="importBtn" class="overflow-menu-item" title="Import Connections">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    <path d="M12 4v12" />
+                    <path d="M8 12l4 4 4-4" />
+                  </svg>
+                  Import connections
+                </button>
+                <button id="exportBtn" class="overflow-menu-item" title="Export Connections">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    <path d="M12 4v12" />
+                    <path d="M8 8l4-4 4 4" />
+                  </svg>
+                  Export connections
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </aside>
@@ -185,7 +197,7 @@
           <div class="form-row">
             <div class="form-group flex-2">
               <label>Connection Name</label>
-              <input type="text" id="connectionName" placeholder="My OpenSearch Connection" class="form-input">
+              <input type="text" id="connectionName" placeholder="Optional — auto-generated if blank" class="form-input">
             </div>
             <div class="form-group flex-1">
               <label>Group</label>
@@ -197,7 +209,7 @@
 
           <!-- AWS Profile -->
           <div class="form-group">
-            <label>AWS Profile</label>
+            <label>AWS Profile <span class="required-dot">*</span></label>
             <div class="input-with-action">
               <select id="profileSelect" class="form-select">
                 <option value="">Select profile...</option>
@@ -213,7 +225,7 @@
 
           <!-- Service Type -->
           <div class="form-group">
-            <label>Service Type</label>
+            <label>Service Type <span class="required-dot">*</span></label>
             <div class="service-options">
               <label class="service-option">
                 <input type="radio" name="service" value="opensearch">
@@ -243,18 +255,28 @@
                   <span class="service-label">Amazon MQ</span>
                 </div>
               </label>
+              <label class="service-option">
+                <input type="radio" name="service" value="custom">
+                <div class="service-card">
+                  <div class="service-icon-custom">⚙</div>
+                  <span class="service-label">Custom</span>
+                </div>
+              </label>
+            </div>
+            <div id="customServiceGroup" class="custom-service-group hidden">
+              <input type="text" id="customServiceName" class="form-input" placeholder="Service name (e.g., Redis, MySQL, Kafka)" maxlength="50">
             </div>
           </div>
 
           <!-- Bastion Host -->
           <div class="form-group">
-            <label>Bastion EC2 Host ID</label>
+            <label>Bastion EC2 Host ID <span class="required-dot">*</span></label>
             <input type="text" id="targetInstance" placeholder="i-0abc123def456789" class="form-input" required>
           </div>
 
           <!-- Service Host -->
           <div class="form-group">
-            <label>Service Host</label>
+            <label>Service Host <span class="required-dot">*</span></label>
             <input type="text" id="serviceHost" placeholder="your-service.region.amazonaws.com" class="form-input"
               required>
           </div>
@@ -263,17 +285,19 @@
           <div class="form-row">
             <div class="form-group">
               <label>Remote Port</label>
-              <input type="text" id="remotePort" class="form-input readonly" readonly>
+              <div id="remotePortDisplay" class="remote-port-display">443</div>
+              <input type="text" id="remotePort" class="form-input hidden" readonly>
             </div>
             <div class="form-group">
               <label>Local Port <span class="label-hint">(editable)</span></label>
               <input type="text" id="localPort" class="form-input" placeholder="5601">
+              <div id="portConflictWarning" class="port-conflict-warning hidden"></div>
             </div>
           </div>
 
           <!-- Region -->
           <div class="form-group">
-            <label>AWS Region</label>
+            <label>AWS Region <span class="required-dot">*</span></label>
             <select id="region" class="form-select" required>
               <option value="">Select region...</option>
               <option value="us-east-1">US East (N. Virginia)</option>
@@ -424,7 +448,11 @@
     <div class="terminal-modal-content">
       <div class="terminal-header">
         <div class="terminal-title">
-          <span class="terminal-icon">⚡</span>
+          <span class="terminal-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </span>
           <span>SSM Session</span>
           <span id="terminalStatus" class="terminal-status">Connecting...</span>
         </div>
@@ -442,6 +470,7 @@
           </button>
         </div>
       </div>
+      <div id="terminalTabs" class="terminal-tabs"></div>
       <div id="terminalContainer" class="terminal-body"></div>
       <div class="terminal-footer">
         <div class="terminal-footer-left">
@@ -517,6 +546,42 @@
       <div class="modal-footer">
         <button id="onboardingRecheck" class="btn-secondary">Re-check</button>
         <button id="onboardingDismiss" class="btn-primary">Get Started</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal (D14) -->
+  <div id="shortcutsModal" class="shortcuts-modal hidden">
+    <div class="shortcuts-content">
+      <div class="shortcuts-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button id="closeShortcuts" class="modal-close">&times;</button>
+      </div>
+      <div class="shortcuts-body">
+        <div class="shortcut-row">
+          <span class="shortcut-label">Search connections</span>
+          <div class="shortcut-keys"><span class="shortcut-key">&#8984;K</span></div>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">New connection</span>
+          <div class="shortcut-keys"><span class="shortcut-key">&#8984;N</span></div>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Save connection</span>
+          <div class="shortcut-keys"><span class="shortcut-key">&#8984;S</span></div>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Start / Stop session</span>
+          <div class="shortcut-keys"><span class="shortcut-key">&#8984;&#9166;</span></div>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Close modal / terminal</span>
+          <div class="shortcut-keys"><span class="shortcut-key">Esc</span></div>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Show this help</span>
+          <div class="shortcut-keys"><span class="shortcut-key">?</span></div>
+        </div>
       </div>
     </div>
   </div>

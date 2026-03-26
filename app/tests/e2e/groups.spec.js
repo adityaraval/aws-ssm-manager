@@ -70,8 +70,10 @@ test.describe('Groups', () => {
     // Create a connection in this group
     await createConnection(page, { name: 'Grouped Conn', group: groupId });
 
-    // Delete the group
+    // Delete the group (opens confirmation modal)
     await page.click(`.group-delete[data-id="${groupId}"]`);
+    await expect(page.locator('#deleteModal')).not.toHaveClass(/hidden/);
+    await page.click('#confirmDelete');
 
     // Group header should be gone
     await expect(page.locator('.group-name', { hasText: 'To Delete Group' })).toHaveCount(0);
