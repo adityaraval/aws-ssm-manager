@@ -25,7 +25,7 @@ const DEFAULT_GROUP_COLOR = '#6b7280';
 // Safe localStorage write with quota handling (G3)
 function safeSetItem(key, value) {
   try {
-    safeSetItem(key, value);
+    localStorage.setItem(key, value);
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       showToast('Storage full — cannot save. Try removing unused connections.', 'error');

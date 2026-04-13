@@ -222,6 +222,7 @@ When adding new feature requests, use this template:
 
 | Date | Change |
 |------|--------|
+| 2026-04-13 | Implemented: multiple simultaneous sessions (up to 5) with tabbed terminal, per-session status dots, per-session timers, and independent stop controls. Fixed safeSetItem infinite recursion bug. |
 | 2026-03-25 | Implemented: custom service types, port conflict detection, unique connection IDs, import/export ID-based dedup, inline field validation, group delete confirmation, empty group states, auto-save on connect, overflow menu, keyboard shortcuts modal, toast/terminal offset, localStorage quota handling, DM Sans font, required field indicators. Added 37+ Playwright E2E tests. |
 | 2026-02-20 | Updated roadmap to reflect current groups-only sidebar: moved Favorites/Recent from implemented to future enhancements |
 | 2025-02-19 | Implemented Quick Wins: connection notes, favorites, recently used, keyboard shortcuts, open URL in browser, connection status badges |

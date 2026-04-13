@@ -137,14 +137,16 @@ The target EC2 instance (bastion host) must have:
 
 ## Features
 
+- **Multiple Simultaneous Sessions**: Run up to 5 sessions at once with a tabbed terminal — each session has its own status indicator, timer, and controls
 - **Multiple Services**: Connect to OpenSearch, Aurora PostgreSQL, ElastiCache Redis, and Amazon MQ
+- **Custom Service Types**: Define your own service with a custom name, remote port, and local port
 - **Organized Connections**: Group connections by environment with color-coding
 - **Secure by Design**: Uses AWS SSM Session Manager — no inbound ports, no bastion SSH
 - **One-Click Connect**: Save connections and reconnect instantly
 - **Dark Mode**: Beautiful dark and light themes
 - **Quick Search**: Find connections with fuzzy search
 - **Export & Import**: Backup and share configurations
-- **Live Terminal**: Watch session output in real-time
+- **Live Terminal**: Watch session output in real-time with per-session tabs
 - **Configurable Session Timeout**: 5/10/15/30 minutes or no timeout with countdown display
 
 ## Installation
