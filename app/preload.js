@@ -4,17 +4,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
   startSSMSession: (config) => ipcRenderer.invoke('start-ssm-session', config),
-  stopSSMSession: () => ipcRenderer.invoke('stop-ssm-session'),
+  stopSSMSession: (id) => ipcRenderer.invoke('stop-ssm-session', { id }),
   checkSessionStatus: () => ipcRenderer.invoke('check-session-status'),
   exportConnections: (data) => ipcRenderer.invoke('export-connections', data),
   importConnections: () => ipcRenderer.invoke('import-connections'),
-  onSessionClosed: (callback) => ipcRenderer.on('session-closed', callback),
-  onTerminalOutput: (callback) => ipcRenderer.on('terminal-output', (event, text) => callback(text)),
-  onSessionStatus: (callback) => ipcRenderer.on('session-status', (event, status) => callback(status)),
-  removeTerminalListeners: () => {
-    ipcRenderer.removeAllListeners('terminal-output');
-    ipcRenderer.removeAllListeners('session-status');
-  },
+  onSessionClosed: (callback) => ipcRenderer.on('session-closed', (event, { id }) => callback(id)),
+  onTerminalOutput: (callback) => ipcRenderer.on('terminal-output', (event, { id, text }) => callback(id, text)),
+  onSessionStatus: (callback) => ipcRenderer.on('session-status', (event, { id, status }) => callback(id, status)),
   checkPrerequisites: () => ipcRenderer.invoke('check-prerequisites'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openUrl: (url) => ipcRenderer.invoke('open-url', url)

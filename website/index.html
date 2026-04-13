@@ -6,271 +6,1565 @@
   <title>AWS SSM Manager — Secure Port Forwarding Made Simple</title>
   <meta name="description" content="A free desktop app for AWS SSM port forwarding. Save connections, launch tunnels in one click. No open ports, no SSH keys.">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" sizes="512x512" href="assets/512x512.png">
   <link rel="icon" type="image/png" sizes="256x256" href="assets/256x256.png">
   <link rel="apple-touch-icon" href="assets/512x512.png">
 
-  <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://aws-ssm-manager.netlify.app">
   <meta property="og:title" content="AWS SSM Manager — Secure Port Forwarding Made Simple">
   <meta property="og:description" content="A free desktop app for AWS SSM port forwarding. Save connections, launch tunnels in one click. No open ports, no SSH keys.">
   <meta property="og:image" content="https://aws-ssm-manager.netlify.app/assets/screenshot.png">
-
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="AWS SSM Manager — Secure Port Forwarding Made Simple">
   <meta name="twitter:description" content="A free desktop app for AWS SSM port forwarding. Save connections, launch tunnels in one click. No open ports, no SSH keys.">
   <meta name="twitter:image" content="https://aws-ssm-manager.netlify.app/assets/screenshot.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }
-    }
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
-    html { scroll-behavior: smooth; }
-    .gradient-text {
-      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f5f7fb;
+      --surface:   #ffffff;
+      --surface-2: #eef1f7;
+      --border:    #dde4ee;
+      --border-2:  #c8d2e4;
+      --text:      #0d1829;
+      --text-muted:#546478;
+      --text-dim:  #9aaabf;
+      --orange:    #e85910;
+      --orange-dim: rgba(232,89,16,0.10);
+      --orange-glow:rgba(232,89,16,0.20);
+      --teal:      #0b9e86;
+      --teal-dim:  rgba(11,158,134,0.10);
+      --blue:      #1a72d9;
+      --blue-dim:  rgba(26,114,217,0.10);
+      --red:       #dc2626;
+      --green:     #16a34a;
+      --font-display: 'Bricolage Grotesque', sans-serif;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'Fira Code', monospace;
     }
-.dl-btn { transition: all 0.15s ease; }
-    .dl-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-    .feature-card { transition: all 0.15s ease; }
-    .feature-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* === DOT GRID BACKGROUND === */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* === NOISE GRAIN === */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* === LAYOUT === */
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+    .container--narrow { max-width: 760px; }
+    .container--wide { max-width: 1200px; }
+
+    /* === NAV === */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid rgba(221,228,238,0.9);
+      background: rgba(245,247,251,0.90);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    nav .inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--orange);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      box-shadow: 0 0 16px var(--orange-glow);
+      flex-shrink: 0;
+    }
+
+    .logo-name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      background: var(--orange);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 20px var(--orange-glow);
+    }
+
+    .nav-cta:hover {
+      background: #ff7b38;
+      box-shadow: 0 0 28px rgba(255,104,32,0.4);
+    }
+
+    /* === HERO === */
+    .hero {
+      padding: 140px 0 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow behind hero */
+    .hero-glow {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(255,104,32,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 64px;
+      align-items: center;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border: 1px solid rgba(255,104,32,0.3);
+      background: rgba(255,104,32,0.08);
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--orange);
+      margin-bottom: 24px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .hero-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 8px var(--orange);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(44px, 5.5vw, 68px);
+      font-weight: 800;
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 20px;
+      animation: fadeUp 0.5s 0.1s ease both;
+    }
+
+    .hero h1 .accent {
+      color: var(--orange);
+      position: relative;
+    }
+
+    .hero h1 .accent::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      left: 0; right: 0;
+      height: 2px;
+      background: var(--orange);
+      opacity: 0.35;
+      border-radius: 2px;
+    }
+
+    .hero-subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      max-width: 480px;
+      margin-bottom: 36px;
+      animation: fadeUp 0.5s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+      animation: fadeUp 0.5s 0.3s ease both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      background: var(--orange);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 14.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+      box-shadow: 0 0 24px var(--orange-glow);
+    }
+
+    .btn-primary:hover {
+      background: #ff7b38;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 28px rgba(255,104,32,0.4);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      background: rgba(0,0,0,0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      font-size: 14.5px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(0,0,0,0.07);
+      color: var(--text);
+      border-color: rgba(0,0,0,0.2);
+    }
+
+    .hero-meta {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      animation: fadeUp 0.5s 0.4s ease both;
+    }
+
+    .hero-meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    .hero-meta svg { color: var(--green); }
+
+    /* === CONNECTION DIAGRAM === */
+    .connection-diagram {
+      animation: fadeUp 0.6s 0.3s ease both;
+      position: relative;
+    }
+
+    .diagram-frame {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .diagram-frame::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,104,32,0.4), transparent);
+    }
+
+    .diagram-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot-row { display: flex; gap: 6px; }
+    .dot-row span {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .dot-row .d-red { background: #ff5f57; }
+    .dot-row .d-yellow { background: #febc2e; }
+    .dot-row .d-green { background: #28c840; }
+
+    .diagram-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: 4px;
+    }
+
+    /* Session tabs in diagram */
+    .session-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .session-tab {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .session-tab.active {
+      background: rgba(0,0,0,0.05);
+      border-color: var(--border-2);
+      color: var(--text);
+    }
+
+    .session-tab.inactive {
+      color: var(--text-dim);
+    }
+
+    .session-tab .tab-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* terminal lines in diagram */
+    .terminal-lines {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.8;
+    }
+
+    .t-dim   { color: var(--text-dim); }
+    .t-green { color: var(--teal); }
+    .t-orange{ color: var(--orange); }
+    .t-blue  { color: var(--blue); }
+    .t-text  { color: var(--text-muted); }
+
+    .cursor {
+      display: inline-block;
+      width: 7px;
+      height: 13px;
+      background: var(--teal);
+      margin-left: 2px;
+      vertical-align: middle;
+      animation: blink 1.1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* session indicator row */
+    .session-indicators {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .session-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .session-pill .sp-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+    }
+
+    .sp-connected { background: rgba(52,211,153,0.1); color: var(--green); }
+    .sp-connected .sp-dot { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    .sp-connecting { background: rgba(59,158,255,0.1); color: var(--blue); }
+    .sp-connecting .sp-dot { background: var(--blue); animation: pulse 1.5s infinite; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === PH BADGE === */
+    .ph-row {
+      margin-top: 8px;
+      animation: fadeUp 0.5s 0.5s ease both;
+    }
+
+    /* === STATS STRIP === */
+    .stats-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 0;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .stats-strip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(255,104,32,0.03), rgba(34,211,176,0.03));
+    }
+
+    .stats-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      divide: solid;
+    }
+
+    .stat-item {
+      padding: 28px 24px;
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-num span { color: var(--orange); }
+
+    .stat-label {
+      font-size: 12.5px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    /* === SECTION HEADERS === */
+    .section-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .section-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--orange);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      padding: 4px 10px;
+      border: 1px solid rgba(255,104,32,0.2);
+      border-radius: 4px;
+      background: rgba(255,104,32,0.05);
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3.5vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 12px;
+      line-height: 1.1;
+    }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.65;
+    }
+
+    /* === FEATURES === */
+    .features {
+      padding: 100px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(255,104,32,0.05), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-2);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+    }
+
+    .feature-card:hover::after { opacity: 1; }
+
+    /* featured/new card gets special treatment */
+    .feature-card.is-new {
+      border-color: rgba(255,104,32,0.3);
+      background: linear-gradient(135deg, rgba(255,104,32,0.06), var(--surface));
+    }
+
+    .feature-card.is-new::before {
+      content: 'NEW';
+      position: absolute;
+      top: 16px; right: 16px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      color: var(--orange);
+      background: rgba(255,104,32,0.12);
+      border: 1px solid rgba(255,104,32,0.25);
+      padding: 2px 7px;
+      border-radius: 100px;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      background: rgba(255,104,32,0.1);
+      border: 1px solid rgba(255,104,32,0.15);
+    }
+
+    .feature-icon svg { color: var(--orange); }
+
+    .feature-icon.teal {
+      background: rgba(34,211,176,0.1);
+      border-color: rgba(34,211,176,0.15);
+    }
+    .feature-icon.teal svg { color: var(--teal); }
+
+    .feature-icon.blue {
+      background: rgba(59,158,255,0.1);
+      border-color: rgba(59,158,255,0.15);
+    }
+    .feature-icon.blue svg { color: var(--blue); }
+
+    .feature-name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* services pill row */
+    .services-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 48px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .services-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .service-pill {
+      padding: 5px 14px;
+      border: 1px solid var(--border-2);
+      border-radius: 100px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      background: var(--surface-2);
+      font-weight: 500;
+    }
+
+    /* === HOW IT WORKS === */
+    .hiw {
+      padding: 100px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hiw::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent, rgba(255,104,32,0.025), transparent);
+      pointer-events: none;
+    }
+
+    .hiw-steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* connecting line between steps */
+    .hiw-steps::before {
+      content: '';
+      position: absolute;
+      top: 22px;
+      left: calc(16.67% + 22px);
+      right: calc(16.67% + 22px);
+      height: 1px;
+      background: linear-gradient(90deg, var(--orange), var(--teal));
+      opacity: 0.3;
+      z-index: 0;
+    }
+
+    .hiw-step {
+      padding: 0 24px;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--orange);
+      margin: 0 auto 20px;
+      position: relative;
+    }
+
+    .step-num::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 15px;
+      border: 1px solid rgba(255,104,32,0.15);
+    }
+
+    .step-title {
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .step-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* === PREREQUISITES === */
+    .prereqs {
+      padding: 100px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .prereqs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .prereq-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      transition: border-color 0.15s;
+    }
+
+    .prereq-card:hover { border-color: var(--border-2); }
+
+    .prereq-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: rgba(255,104,32,0.08);
+      border: 1px solid rgba(255,104,32,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .prereq-icon svg { color: var(--orange); }
+
+    .prereq-name {
+      font-family: var(--font-display);
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .code-block {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: #eef1f7;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 12px;
+      color: var(--teal);
+      margin-bottom: 8px;
+      display: block;
+      word-break: break-all;
+    }
+
+    .prereq-link {
+      font-size: 12px;
+      color: var(--orange);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .prereq-link:hover { text-decoration: underline; }
+
+    .prereq-note {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* EC2 requirements box */
+    .ec2-box {
+      margin-top: 12px;
+      background: rgba(180,110,0,0.06);
+      border: 1px solid rgba(180,110,0,0.18);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .ec2-box-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #92400e;
+      margin-bottom: 12px;
+    }
+
+    .ec2-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ec2-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: rgba(120,60,0,0.75);
+    }
+
+    .ec2-check {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: rgba(146,64,14,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .ec2-check svg { color: #92400e; }
+
+    /* === SCREENSHOT SECTION === */
+    .screenshot-section {
+      padding: 80px 0 100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .screenshot-wrapper {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.15);
+    }
+
+    .screenshot-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 70%, rgba(245,247,251,0.6));
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .screenshot-glow {
+      position: absolute;
+      top: -100px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 300px;
+      background: radial-gradient(ellipse, rgba(255,104,32,0.08), transparent 70%);
+      pointer-events: none;
+    }
+
+    .screenshot-wrapper img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* === DOWNLOAD === */
+    .download {
+      padding: 100px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .download-inner {
+      position: relative;
+    }
+
+    .download-glow {
+      position: absolute;
+      inset: -80px;
+      background: radial-gradient(ellipse at center, rgba(255,104,32,0.06), transparent 70%);
+      pointer-events: none;
+    }
+
+    .version-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      border: 1px solid rgba(52,211,153,0.25);
+      background: rgba(52,211,153,0.06);
+      border-radius: 100px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--green);
+      margin-bottom: 24px;
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+
+    .version-badge:hover { border-color: rgba(52,211,153,0.4); }
+
+    .version-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .platform-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 28px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      text-decoration: none;
+      transition: all 0.2s;
+      color: var(--text);
+    }
+
+    .platform-card:hover {
+      border-color: rgba(255,104,32,0.35);
+      background: rgba(255,104,32,0.04);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.10);
+    }
+
+    .platform-card svg {
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .platform-card:hover svg { color: var(--text); }
+
+    .platform-name {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .platform-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .trust-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    .trust-item svg { color: var(--green); }
+
+    /* macOS warning */
+    .mac-warning {
+      background: rgba(180,110,0,0.06);
+      border: 1px solid rgba(180,110,0,0.18);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .mac-warning-icon {
+      color: #b45309;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .mac-warning-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #92400e;
+      margin-bottom: 6px;
+    }
+
+    .mac-warning-text {
+      font-size: 12.5px;
+      color: rgba(120,60,0,0.75);
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .mac-warning-note {
+      font-size: 11.5px;
+      color: rgba(120,60,0,0.5);
+      margin-top: 8px;
+    }
+
+    /* === CTA STRIP === */
+    .cta-strip {
+      padding: 100px 0;
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .cta-strip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(34,211,176,0.06), transparent 70%);
+    }
+
+    .cta-strip h2 {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-strip p {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .cta-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* === FOOTER === */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0 32px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .footer-links a {
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--text-muted); }
+
+    .footer-copy {
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 860px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+      .connection-diagram { max-width: 520px; margin: 0 auto; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .hiw-steps { grid-template-columns: 1fr; gap: 40px; }
+      .hiw-steps::before { display: none; }
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      .stat-item:nth-child(2) { border-right: none; }
+      .stat-item:nth-child(3) { border-top: 1px solid var(--border); }
+      .prereqs-grid { grid-template-columns: 1fr; }
+      .platform-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 560px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .platform-grid { grid-template-columns: 1fr; }
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      .nav-links { display: none; }
+      .hero h1 { font-size: 38px; }
+    }
+
+    /* === SCROLL ANIMATIONS === */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
   </style>
 </head>
-<body class="bg-white text-slate-900 font-sans antialiased">
 
-  <!-- Nav -->
-  <header class="fixed top-0 inset-x-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-100">
-    <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2.5">
-        <div class="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">⚡</div>
-        <span class="font-semibold text-slate-900">AWS SSM Manager</span>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="inner">
+      <a href="#" class="logo">
+        <div class="logo-icon">⚡</div>
+        <span class="logo-name">AWS SSM Manager</span>
       </a>
-      <nav class="hidden sm:flex items-center gap-7">
-        <a href="#features" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">Features</a>
-        <a href="#prerequisites" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">Prerequisites</a>
-        <a href="#download" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">Download</a>
-        <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" class="text-sm text-slate-500 hover:text-slate-900 transition-colors">GitHub</a>
-      </nav>
-      <a href="#download" class="text-sm font-semibold px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors">
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#download">Download</a></li>
+        <li><a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" rel="noopener">GitHub</a></li>
+      </ul>
+      <a href="#download" class="nav-cta">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download free
       </a>
     </div>
-  </header>
+  </nav>
 
-  <!-- Hero -->
-  <section class="pt-32 pb-20 px-6 text-center">
-    <div class="max-w-3xl mx-auto">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="hero-inner">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="dot"></span>
+          v2.0.0 &nbsp;·&nbsp; macOS · Windows · Linux
+        </div>
 
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-100 text-orange-700 text-xs font-medium mb-6">
-        <span class="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-        v1.0.0 — macOS, Windows &amp; Linux
-      </div>
+        <h1>
+          AWS port<br>
+          forwarding,<br>
+          <span class="accent">without friction.</span>
+        </h1>
 
-      <h1 class="text-5xl sm:text-6xl font-extrabold tracking-tight text-slate-900 leading-[1.05] mb-6">
-        AWS port forwarding,<br>
-        <span class="gradient-text">without the friction.</span>
-      </h1>
+        <p class="hero-subtitle">
+          Save SSM connections once, launch them in one click. No open ports, no SSH keys, no bastion hosts — just IAM, with a UI that doesn't slow you down.
+        </p>
 
-      <p class="text-lg sm:text-xl text-slate-500 leading-relaxed mb-10 max-w-2xl mx-auto">
-        Save SSM connections once, launch them in one click. No open ports, no SSH keys, no bastion hosts — just IAM, with a UI that doesn't slow you down.
-      </p>
+        <div class="hero-actions">
+          <a href="#download" class="btn-primary">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download for free
+          </a>
+          <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" rel="noopener" class="btn-secondary">
+            <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            View on GitHub
+          </a>
+        </div>
 
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-        <a href="#download" class="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          Download for free
-        </a>
-        <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" class="inline-flex items-center gap-2 px-6 py-3 border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-colors">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-          View on GitHub
-        </a>
-      </div>
+        <div class="hero-meta">
+          <span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Open source · MIT
+          </span>
+          <span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            No telemetry
+          </span>
+          <span>
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            No account required
+          </span>
+        </div>
 
-      <!-- PH Badge -->
-      <div class="flex justify-center mb-16">
-        <a href="https://www.producthunt.com/products/aws-ssm-manager?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-aws-ssm-manager-2" target="_blank" rel="noopener noreferrer">
-          <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1082859&theme=light" alt="AWS SSM Manager on Product Hunt" width="200" height="43" style="width:200px;height:43px;" />
-        </a>
-      </div>
-
-      <!-- Screenshot -->
-      <div class="relative">
-        <div class="absolute inset-0 -m-8 bg-gradient-to-b from-orange-50/60 via-transparent to-transparent rounded-3xl blur-2xl pointer-events-none"></div>
-        <div class="relative rounded-2xl border border-slate-200 shadow-2xl shadow-slate-900/10 overflow-hidden">
-          <img src="assets/screenshot.png" alt="AWS SSM Manager screenshot" class="w-full h-auto block" loading="lazy">
+        <div class="ph-row">
+          <a href="https://www.producthunt.com/products/aws-ssm-manager?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-aws-ssm-manager-2" target="_blank" rel="noopener noreferrer">
+            <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1082859&theme=dark" alt="AWS SSM Manager on Product Hunt" width="200" height="43" style="width:200px;height:43px;">
+          </a>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- Features -->
-  <section id="features" class="py-24 px-6 bg-slate-50">
-    <div class="max-w-5xl mx-auto">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl font-bold text-slate-900 mb-3">Built for daily use</h2>
-        <p class="text-slate-500 text-lg max-w-xl mx-auto">Every feature exists because the CLI workflow was painful in a specific, repeatable way.</p>
-      </div>
-
-      <div class="grid md:grid-cols-3 gap-4">
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <!-- DIAGRAM -->
+      <div class="connection-diagram">
+        <div class="diagram-frame">
+          <div class="diagram-header">
+            <div class="dot-row">
+              <span class="d-red"></span>
+              <span class="d-yellow"></span>
+              <span class="d-green"></span>
+            </div>
+            <span class="diagram-title">SSM Session Terminal</span>
           </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">One-click launch</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Save connections with name, instance ID, service, region, and profile — then launch in a single click. No more hunting for IDs.</p>
-        </div>
 
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <div class="session-tabs">
+            <div class="session-tab active">
+              <span class="tab-dot" style="background:#0b9e86; box-shadow:0 0 5px rgba(11,158,134,0.5);"></span>
+              Prod OpenSearch
+              <span style="color:#9aaabf;font-size:12px;margin-left:2px;">×</span>
+            </div>
+            <div class="session-tab inactive">
+              <span class="tab-dot" style="background:#1a72d9;"></span>
+              Staging MQ
+              <span style="color:#9aaabf;font-size:12px;margin-left:2px;">×</span>
+            </div>
+            <div class="session-tab inactive">
+              <span class="tab-dot" style="background:#0b9e86;"></span>
+              Aurora Prod
+              <span style="color:#9aaabf;font-size:12px;margin-left:2px;">×</span>
+            </div>
           </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">Secure by design</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">No inbound ports. No SSH keys. No bastion hosts. Built entirely on AWS SSM — the same IAM-based security you already rely on.</p>
-        </div>
 
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <div class="terminal-lines">
+            <div><span class="t-dim">$</span> <span class="t-orange">aws ssm start-session</span> <span class="t-text">--target i-0abc...</span></div>
+            <div><span class="t-green">✓</span> <span class="t-text">Connected · Port 5601 → 443</span></div>
+            <div><span class="t-dim">Port 5601 forwarding to remote host.</span></div>
+            <div><span class="t-dim">Waiting for connections...</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-text">Session: </span><span class="t-blue">aws-0abc1def2345</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-dim">_</span><span class="cursor"></span></div>
           </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">Port conflict detection</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Catches a busy local port before the tunnel tries to start — a clear error instead of a cryptic failure or silent hang.</p>
-        </div>
 
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <div class="session-indicators">
+            <div class="session-pill sp-connected">
+              <span class="sp-dot"></span>
+              OpenSearch :5601
+            </div>
+            <div class="session-pill sp-connected">
+              <span class="sp-dot"></span>
+              Aurora :5432
+            </div>
+            <div class="session-pill sp-connecting">
+              <span class="sp-dot"></span>
+              MQ :15672
+            </div>
           </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">Onboarding checks</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">First-run validation checks your AWS CLI, Session Manager plugin, and credentials — before you waste time debugging setup.</p>
-        </div>
-
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">Live terminal</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Watch raw SSM session output in real time per connection. Configurable timeouts with live countdown warnings.</p>
-        </div>
-
-        <div class="feature-card bg-white rounded-2xl border border-slate-100 p-6">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>
-          </div>
-          <h3 class="font-semibold text-slate-900 mb-1.5">Organized &amp; filterable</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Group connections by environment, filter by region, service, or profile. Drag to reorder. Bulk move, export, or delete.</p>
-        </div>
-      </div>
-
-      <!-- Supported services -->
-      <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
-        <span class="text-xs text-slate-400 font-medium uppercase tracking-wide mr-1">Supports</span>
-        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">OpenSearch</span>
-        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">Aurora PostgreSQL</span>
-        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">ElastiCache Redis</span>
-        <span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-medium text-slate-600">Amazon MQ</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- How it works -->
-  <section id="how-it-works" class="py-24 px-6">
-    <div class="max-w-4xl mx-auto">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl font-bold text-slate-900 mb-3">How it works</h2>
-        <p class="text-slate-500 text-lg">Three steps to connect to your private AWS resources.</p>
-      </div>
-      <div class="grid md:grid-cols-3 gap-8">
-        <div class="text-center">
-          <div class="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-bold text-lg mx-auto mb-4">1</div>
-          <h3 class="font-semibold text-slate-900 mb-2">Select your profile</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">AWS SSM Manager auto-detects your AWS CLI profiles. Pick one from the dropdown.</p>
-        </div>
-        <div class="text-center">
-          <div class="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-bold text-lg mx-auto mb-4">2</div>
-          <h3 class="font-semibold text-slate-900 mb-2">Configure &amp; save</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Enter your EC2 instance ID and target endpoint. Ports are pre-filled per service. Save for next time.</p>
-        </div>
-        <div class="text-center">
-          <div class="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-bold text-lg mx-auto mb-4">3</div>
-          <h3 class="font-semibold text-slate-900 mb-2">Connect</h3>
-          <p class="text-sm text-slate-500 leading-relaxed">Click Start Session. Your service is now on localhost. View live logs in the terminal panel.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Prerequisites -->
-  <section id="prerequisites" class="py-24 px-6 bg-slate-50">
-    <div class="max-w-4xl mx-auto">
-      <div class="text-center mb-12">
-        <h2 class="text-3xl font-bold text-slate-900 mb-3">Prerequisites</h2>
-        <p class="text-slate-500 text-lg">Make sure you have these installed before getting started.</p>
+  <!-- STATS STRIP -->
+  <div class="stats-strip">
+    <div class="stats-inner">
+      <div class="stat-item">
+        <div class="stat-num"><span>5</span> max</div>
+        <div class="stat-label">simultaneous sessions</div>
       </div>
-      <div class="grid md:grid-cols-2 gap-4">
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M8 21h8M12 17v4"/></svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-slate-900 mb-2">AWS CLI v2</h3>
-            <code class="text-xs bg-slate-50 border border-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-mono block mb-2">brew install awscli</code>
-            <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" target="_blank" class="text-xs text-orange-500 hover:text-orange-600 font-medium">Installation guide →</a>
-          </div>
-        </div>
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-slate-900 mb-2">Session Manager Plugin</h3>
-            <code class="text-xs bg-slate-50 border border-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-mono block mb-2">brew install --cask session-manager-plugin</code>
-            <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html" target="_blank" class="text-xs text-orange-500 hover:text-orange-600 font-medium">Installation guide →</a>
-          </div>
-        </div>
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-slate-900 mb-2">AWS Credentials</h3>
-            <code class="text-xs bg-slate-50 border border-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-mono block mb-2">aws configure --profile my-profile</code>
-            <p class="text-xs text-slate-400">Supports IAM users, roles, and SSO.</p>
-          </div>
-        </div>
-        <div class="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-4">
-          <div class="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          </div>
-          <div>
-            <h3 class="font-semibold text-slate-900 mb-2">IAM Permissions</h3>
-            <code class="text-xs bg-slate-50 border border-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg font-mono block mb-2">ssm:StartSession · ssm:TerminateSession</code>
-            <p class="text-xs text-slate-400">Plus ec2:DescribeInstances for instance lookup.</p>
-          </div>
+      <div class="stat-item">
+        <div class="stat-num"><span>1</span> click</div>
+        <div class="stat-label">to reconnect saved tunnels</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num"><span>0</span></div>
+        <div class="stat-label">open inbound ports needed</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num"><span>4</span>+ services</div>
+        <div class="stat-label">OpenSearch · Aurora · Redis · MQ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP SCREENSHOT -->
+  <section class="screenshot-section">
+    <div class="container">
+      <div style="position:relative;">
+        <div class="screenshot-glow"></div>
+        <div class="screenshot-wrapper reveal">
+          <img src="assets/screenshot.png" alt="AWS SSM Manager — application screenshot" loading="lazy">
         </div>
       </div>
-      <div class="mt-4 bg-amber-50 border border-amber-100 rounded-2xl p-5">
-        <p class="text-sm font-semibold text-amber-900 mb-2">EC2 instance requirements</p>
-        <ul class="text-sm text-amber-800 space-y-1.5">
-          <li class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" class="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-tag">Features</div>
+        <h2 class="section-title">Built for daily use</h2>
+        <p class="section-sub">Every feature exists because the CLI workflow was painful in a specific, repeatable way.</p>
+      </div>
+
+      <div class="features-grid">
+
+        <!-- NEW: Multi-session -->
+        <div class="feature-card is-new reveal">
+          <div class="feature-icon teal">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <div class="feature-name">Multiple simultaneous sessions</div>
+          <p class="feature-desc">Run up to 5 tunnels in parallel. Each session gets its own tab in the terminal modal — switch between them instantly. Independent status indicators in the sidebar.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div class="feature-name">One-click launch</div>
+          <p class="feature-desc">Save connections with name, instance ID, service, region, and profile — then launch in a single click. No more hunting for IDs or scrolling through history.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon blue">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div class="feature-name">Secure by design</div>
+          <p class="feature-desc">No inbound ports. No SSH keys. No bastion hosts. Built entirely on AWS SSM — the same IAM-based security you already rely on.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <div class="feature-name">Port conflict detection</div>
+          <p class="feature-desc">Catches a busy local port before the tunnel starts — a clear warning instead of a cryptic failure or a silent hang that wastes five minutes of debugging.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon teal">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h8M4 18h8"/></svg>
+          </div>
+          <div class="feature-name">Organized &amp; filterable</div>
+          <p class="feature-desc">Group connections by environment, filter by region, service, or profile. Drag to reorder. Bulk move, export, or delete. Keyboard-first navigation throughout.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon blue">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          </div>
+          <div class="feature-name">Onboarding checks</div>
+          <p class="feature-desc">First-run validation verifies your AWS CLI, Session Manager plugin, and credentials — before you waste time debugging a setup issue you didn't know existed.</p>
+        </div>
+
+      </div>
+
+      <div class="services-row reveal">
+        <span class="services-label">Supports</span>
+        <span class="service-pill">Amazon OpenSearch</span>
+        <span class="service-pill">Aurora PostgreSQL</span>
+        <span class="service-pill">ElastiCache Redis</span>
+        <span class="service-pill">Amazon MQ</span>
+        <span class="service-pill">Custom Services</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how-it-works" class="hiw">
+    <div class="container container--narrow">
+      <div class="section-header reveal">
+        <div class="section-tag">How it works</div>
+        <h2 class="section-title">Three steps to connect</h2>
+        <p class="section-sub">From download to running tunnel in under two minutes.</p>
+      </div>
+
+      <div class="hiw-steps reveal">
+        <div class="hiw-step">
+          <div class="step-num">01</div>
+          <div class="step-title">Pick your profile</div>
+          <p class="step-desc">AWS SSM Manager auto-detects your AWS CLI profiles from <code style="font-family:var(--font-mono);font-size:11.5px;color:var(--teal)">~/.aws/</code>. Select one from the dropdown — no manual configuration.</p>
+        </div>
+        <div class="hiw-step">
+          <div class="step-num">02</div>
+          <div class="step-title">Configure &amp; save</div>
+          <p class="step-desc">Enter your EC2 instance ID and target endpoint. Ports are pre-filled per service type. Save it — you'll never type this again.</p>
+        </div>
+        <div class="hiw-step">
+          <div class="step-num">03</div>
+          <div class="step-title">Start Session</div>
+          <p class="step-desc">Click Start Session. Your service is now reachable on localhost. View live tunnel output in the terminal panel and copy the service URL in one click.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PREREQUISITES -->
+  <section id="prerequisites" class="prereqs">
+    <div class="container">
+      <div class="section-header reveal">
+        <div class="section-tag">Prerequisites</div>
+        <h2 class="section-title">Before you get started</h2>
+        <p class="section-sub">Install these once — the app checks them automatically on first run.</p>
+      </div>
+
+      <div class="prereqs-grid reveal">
+        <div class="prereq-card">
+          <div class="prereq-icon">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <div>
+            <div class="prereq-name">AWS CLI v2</div>
+            <code class="code-block">brew install awscli</code>
+            <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html" target="_blank" class="prereq-link">Installation guide →</a>
+          </div>
+        </div>
+
+        <div class="prereq-card">
+          <div class="prereq-icon">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <div>
+            <div class="prereq-name">Session Manager Plugin</div>
+            <code class="code-block">brew install --cask session-manager-plugin</code>
+            <a href="https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html" target="_blank" class="prereq-link">Installation guide →</a>
+          </div>
+        </div>
+
+        <div class="prereq-card">
+          <div class="prereq-icon">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+          </div>
+          <div>
+            <div class="prereq-name">AWS Credentials</div>
+            <code class="code-block">aws configure --profile my-profile</code>
+            <p class="prereq-note">Supports IAM users, roles, and SSO.</p>
+          </div>
+        </div>
+
+        <div class="prereq-card">
+          <div class="prereq-icon">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <div class="prereq-name">IAM Permissions</div>
+            <code class="code-block">ssm:StartSession · ssm:TerminateSession</code>
+            <p class="prereq-note">Plus <code style="font-family:var(--font-mono);font-size:10.5px">ec2:DescribeInstances</code> for instance lookup.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ec2-box reveal" style="margin-top:12px;">
+        <div class="ec2-box-title">EC2 instance requirements</div>
+        <ul class="ec2-list">
+          <li>
+            <div class="ec2-check">
+              <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
             SSM Agent installed and running (pre-installed on Amazon Linux 2, Ubuntu 20.04+)
           </li>
-          <li class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            IAM instance profile with <code class="text-xs bg-amber-100 px-1 rounded">AmazonSSMManagedInstanceCore</code> policy
+          <li>
+            <div class="ec2-check">
+              <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            IAM instance profile with <code style="font-family:var(--font-mono);font-size:11px;background:rgba(146,64,14,0.08);padding:1px 5px;border-radius:3px">AmazonSSMManagedInstanceCore</code> policy
           </li>
-          <li class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <li>
+            <div class="ec2-check">
+              <svg width="9" height="9" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
             Outbound internet access or VPC endpoints for SSM
           </li>
         </ul>
@@ -278,150 +1572,169 @@
     </div>
   </section>
 
-  <!-- Download -->
-  <section id="download" class="py-24 px-6">
-    <div class="max-w-2xl mx-auto text-center">
-      <h2 class="text-3xl font-bold text-slate-900 mb-3">Download AWS SSM Manager</h2>
-      <p class="text-slate-500 mb-3">Free and open source. No account required.</p>
-      <a id="releaseLink" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 bg-slate-50 text-xs font-medium text-slate-500 hover:border-orange-200 hover:text-orange-600 hover:bg-orange-50 transition-colors mb-10">
-        <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-        <span id="releaseVersion">Latest release</span>
-        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-      </a>
+  <!-- DOWNLOAD -->
+  <section id="download" class="download">
+    <div class="container container--narrow">
+      <div class="download-inner">
+        <div class="download-glow"></div>
 
-      <div class="grid grid-cols-3 gap-3 mb-8">
-        <a id="downloadMac" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="dl-btn group flex flex-col items-center gap-3 p-5 rounded-2xl border border-slate-200 hover:border-orange-200 bg-white">
-          <svg class="w-8 h-8 text-slate-600 group-hover:text-slate-900 transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
-          <div>
-            <div class="text-sm font-semibold text-slate-900">macOS</div>
-            <div class="text-xs text-slate-400">Intel & Apple Silicon</div>
-          </div>
-        </a>
-        <a id="downloadWindows" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="dl-btn group flex flex-col items-center gap-3 p-5 rounded-2xl border border-slate-200 hover:border-orange-200 bg-white">
-          <svg class="w-8 h-8 text-slate-600 group-hover:text-slate-900 transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-          <div>
-            <div class="text-sm font-semibold text-slate-900">Windows</div>
-            <div class="text-xs text-slate-400">Windows 10+</div>
-          </div>
-        </a>
-        <a id="downloadLinux" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="dl-btn group flex flex-col items-center gap-3 p-5 rounded-2xl border border-slate-200 hover:border-orange-200 bg-white">
-          <svg class="w-8 h-8 text-slate-600 group-hover:text-slate-900 transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065z"/></svg>
-          <div>
-            <div class="text-sm font-semibold text-slate-900">Linux</div>
-            <div class="text-xs text-slate-400">AppImage & .deb</div>
-          </div>
-        </a>
-      </div>
+        <div style="text-align:center; margin-bottom:40px;" class="reveal">
+          <div class="section-tag">Download</div>
+          <h2 class="section-title" style="margin-bottom:8px;">Get AWS SSM Manager</h2>
+          <p style="color:var(--text-muted);font-size:15px;margin-bottom:20px;">Free and open source. No account required.</p>
 
-      <!-- Trust strip -->
-      <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-xs text-slate-400">
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-          Open source · MIT
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-          No telemetry
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-          No outbound calls
-        </span>
-        <span class="flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-          SHA-256 checksums
-        </span>
-      </div>
+          <a id="releaseLink" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" target="_blank" class="version-badge">
+            <span class="version-dot"></span>
+            <span id="releaseVersion">Latest release</span>
+            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
 
-      <!-- macOS note -->
-      <div class="text-left rounded-xl border border-amber-100 bg-amber-50 overflow-hidden">
-        <div class="flex items-start gap-3 px-4 py-4">
-          <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <div class="space-y-2 min-w-0 w-full">
-            <p class="text-sm font-semibold text-amber-900">macOS showing "Damaged and can't be opened"?</p>
-            <p class="text-xs text-amber-700 leading-relaxed">This is a Gatekeeper quarantine flag macOS adds to browser downloads — not actual damage. Run this once in Terminal to fix it:</p>
-            <code class="block text-xs bg-white border border-amber-100 text-green-700 px-3 py-2.5 rounded-lg font-mono break-all">xattr -cr "/Applications/AWS SSM Manager.app"</code>
-            <p class="text-xs text-amber-600">Removes the quarantine flag for this app only — doesn't affect system-wide Gatekeeper settings.</p>
+        <div class="platform-grid reveal">
+          <a id="downloadMac" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="platform-card">
+            <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            <div>
+              <div class="platform-name">macOS</div>
+              <div class="platform-sub">Intel &amp; Apple Silicon</div>
+            </div>
+          </a>
+          <a id="downloadWindows" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="platform-card">
+            <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <div>
+              <div class="platform-name">Windows</div>
+              <div class="platform-sub">Windows 10+</div>
+            </div>
+          </a>
+          <a id="downloadLinux" href="https://github.com/adityaraval/aws-ssm-manager/releases/latest" class="platform-card">
+            <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24"><path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065z"/></svg>
+            <div>
+              <div class="platform-name">Linux</div>
+              <div class="platform-sub">AppImage &amp; .deb</div>
+            </div>
+          </a>
+        </div>
+
+        <div class="trust-strip reveal">
+          <span class="trust-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            Open source · MIT
+          </span>
+          <span class="trust-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            No telemetry
+          </span>
+          <span class="trust-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            No outbound calls
+          </span>
+          <span class="trust-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            SHA-256 checksums
+          </span>
+        </div>
+
+        <div class="mac-warning reveal">
+          <svg class="mac-warning-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <div class="mac-warning-title">macOS showing "Damaged and can't be opened"?</div>
+            <p class="mac-warning-text">This is a Gatekeeper quarantine flag macOS adds to browser downloads — not actual damage. Run this once in Terminal:</p>
+            <code class="code-block" style="color:#0b9e86">xattr -cr "/Applications/AWS SSM Manager.app"</code>
+            <p class="mac-warning-note">Removes the quarantine flag for this app only — doesn't affect system-wide Gatekeeper settings.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Final CTA -->
-  <section class="py-24 px-6 bg-slate-900">
-    <div class="max-w-2xl mx-auto text-center">
-      <h2 class="text-3xl font-bold text-white mb-4">Stop copy-pasting instance IDs.</h2>
-      <p class="text-slate-400 text-lg mb-8">Free, open source, and ready to use in under a minute.</p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-        <a href="#download" class="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-400 text-white text-sm font-semibold rounded-xl transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+  <!-- CTA STRIP -->
+  <section class="cta-strip">
+    <div class="container container--narrow">
+      <h2>Stop copy-pasting<br>instance IDs.</h2>
+      <p>Free, open source, and ready in under a minute.</p>
+      <div class="cta-actions">
+        <a href="#download" class="btn-primary">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
           Download for free
         </a>
-        <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" class="inline-flex items-center gap-2 px-6 py-3 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-semibold rounded-xl transition-colors">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" rel="noopener" class="btn-secondary">
+          <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
           View on GitHub
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="py-12 px-6 border-t border-slate-100">
-    <div class="max-w-5xl mx-auto flex flex-col items-center gap-6">
-      <a href="https://www.producthunt.com/products/aws-ssm-manager?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-aws-ssm-manager-2" target="_blank" rel="noopener noreferrer">
-        <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1082859&theme=light" alt="AWS SSM Manager on Product Hunt" width="200" height="43" style="width:200px;height:43px;" />
-      </a>
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
-        <span class="text-sm text-slate-400">© 2026 AWS SSM Manager — MIT License</span>
-        <div class="flex items-center gap-6">
-          <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" class="text-sm text-slate-400 hover:text-slate-900 transition-colors">GitHub</a>
-          <a href="https://github.com/adityaraval/aws-ssm-manager#readme" class="text-sm text-slate-400 hover:text-slate-900 transition-colors">Docs</a>
-          <a href="https://github.com/adityaraval/aws-ssm-manager/issues" class="text-sm text-slate-400 hover:text-slate-900 transition-colors">Report issue</a>
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <a href="https://www.producthunt.com/products/aws-ssm-manager?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-aws-ssm-manager-2" target="_blank" rel="noopener noreferrer">
+          <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1082859&theme=dark" alt="AWS SSM Manager on Product Hunt" width="200" height="43" style="width:200px;height:43px;">
+        </a>
+        <div class="footer-links">
+          <a href="https://github.com/adityaraval/aws-ssm-manager" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/adityaraval/aws-ssm-manager#readme" target="_blank" rel="noopener">Docs</a>
+          <a href="https://github.com/adityaraval/aws-ssm-manager/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/adityaraval/aws-ssm-manager/issues" target="_blank" rel="noopener">Report issue</a>
         </div>
+        <p class="footer-copy">© 2026 AWS SSM Manager — MIT License</p>
       </div>
     </div>
   </footer>
 
-
   <script>
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          // stagger siblings
+          const siblings = entry.target.parentElement?.querySelectorAll('.reveal');
+          let delay = 0;
+          if (siblings) {
+            siblings.forEach((el, idx) => {
+              if (el === entry.target) delay = idx * 60;
+            });
+          }
+          setTimeout(() => entry.target.classList.add('visible'), delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // GitHub release API
     (async function bindLatestReleaseLinks() {
       const owner = 'adityaraval';
-      const repo = 'aws-ssm-manager';
-      const fallback = `https://github.com/${owner}/${repo}/releases/latest`;
+      const repo  = 'aws-ssm-manager';
 
       try {
-        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
-        if (!response.ok) throw new Error(`GitHub API ${response.status}`);
-        const release = await response.json();
-        const assets = Array.isArray(release.assets) ? release.assets : [];
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+        if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+        const release = await res.json();
+        const assets  = Array.isArray(release.assets) ? release.assets : [];
 
-        const pickAsset = (patterns) => {
-          const lowered = patterns.map((p) => p.toLowerCase());
-          return assets.find((asset) => lowered.some((p) => asset.name.toLowerCase().includes(p)));
+        const pick = (patterns) => {
+          const lp = patterns.map(p => p.toLowerCase());
+          return assets.find(a => lp.some(p => a.name.toLowerCase().includes(p)));
         };
 
-        const macAsset = pickAsset(['.dmg']);
-        const windowsAsset = pickAsset(['.exe']);
-        const linuxAsset = pickAsset(['.appimage', '.deb']);
+        const macA = pick(['.dmg']);
+        const winA = pick(['.exe']);
+        const linA = pick(['.appimage', '.deb']);
 
-        const macLink = document.getElementById('downloadMac');
-        const windowsLink = document.getElementById('downloadWindows');
-        const linuxLink = document.getElementById('downloadLinux');
-        const releaseVersion = document.getElementById('releaseVersion');
-        const releaseLink = document.getElementById('releaseLink');
+        if (macA) document.getElementById('downloadMac').href    = macA.browser_download_url;
+        if (winA) document.getElementById('downloadWindows').href = winA.browser_download_url;
+        if (linA) document.getElementById('downloadLinux').href   = linA.browser_download_url;
 
-        if (macLink && macAsset) macLink.href = macAsset.browser_download_url;
-        if (windowsLink && windowsAsset) windowsLink.href = windowsAsset.browser_download_url;
-        if (linuxLink && linuxAsset) linuxLink.href = linuxAsset.browser_download_url;
-
-        if (releaseVersion && release.tag_name) releaseVersion.textContent = release.tag_name;
-        if (releaseLink && release.html_url) releaseLink.href = release.html_url;
+        const rv = document.getElementById('releaseVersion');
+        const rl = document.getElementById('releaseLink');
+        if (rv && release.tag_name) rv.textContent = release.tag_name;
+        if (rl && release.html_url) rl.href = release.html_url;
       } catch {
-        // fallback hrefs already set in HTML
+        // fallback hrefs already in HTML
       }
     })();
   </script>
-
 </body>
 </html>
