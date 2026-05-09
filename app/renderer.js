@@ -128,9 +128,12 @@ function setupTerminal() {
         toastContainer.classList.add('terminal-visible');
       }
     }
-    // Re-fit active terminal after minimize toggle
+    // Re-fit active terminal after restore — wait for height transition to complete
     if (activeTabId && !modal.classList.contains('minimized')) {
-      sessions.get(activeTabId)?.fitAddon.fit();
+      const content = modal.querySelector('.terminal-modal-content');
+      content.addEventListener('transitionend', () => {
+        sessions.get(activeTabId)?.fitAddon.fit();
+      }, { once: true });
     }
   });
 
