@@ -2252,3 +2252,96 @@ body {
 .brand-icon-svg svg {
   color: white;
 }
+
+/* WSL Mode Toggle */
+.wsl-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wsl-mode-row.hidden {
+  display: none !important;
+}
+
+.wsl-mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wsl-mode-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.wsl-mode-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.wsl-toggle-label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.wsl-toggle {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.wsl-toggle-track {
+  display: block;
+  width: 34px;
+  height: 18px;
+  background: var(--border-color);
+  border-radius: 9px;
+  transition: background 0.2s;
+}
+
+.wsl-toggle:checked + .wsl-toggle-track {
+  background: var(--accent-color, #3b82f6);
+}
+
+.wsl-toggle-track::after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  margin: 2px;
+  transition: transform 0.2s;
+}
+
+.wsl-toggle:checked + .wsl-toggle-track::after {
+  transform: translateX(16px);
+}
+
+/* WSL Mode Onboarding row in sidebar footer */
+.wsl-onboarding-row {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wsl-onboarding-row.hidden {
+  display: none !important;
+}
+
+.wsl-onboarding-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.wsl-onboarding-text {
+  color: var(--text-secondary);
+}

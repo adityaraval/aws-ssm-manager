@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Expose Electron APIs to renderer
 contextBridge.exposeInMainWorld('electronAPI', {
-  getProfiles: () => ipcRenderer.invoke('get-profiles'),
+  getProfiles: ({ wslMode } = {}) => ipcRenderer.invoke('get-profiles', { wslMode }),
   startSSMSession: (config) => ipcRenderer.invoke('start-ssm-session', config),
   stopSSMSession: (id) => ipcRenderer.invoke('stop-ssm-session', { id }),
   checkSessionStatus: () => ipcRenderer.invoke('check-session-status'),
@@ -11,9 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSessionClosed: (callback) => ipcRenderer.on('session-closed', (event, { id }) => callback(id)),
   onTerminalOutput: (callback) => ipcRenderer.on('terminal-output', (event, { id, text }) => callback(id, text)),
   onSessionStatus: (callback) => ipcRenderer.on('session-status', (event, { id, status }) => callback(id, status)),
-  checkPrerequisites: () => ipcRenderer.invoke('check-prerequisites'),
+  checkPrerequisites: ({ wslMode } = {}) => ipcRenderer.invoke('check-prerequisites', { wslMode }),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
-  openUrl: (url) => ipcRenderer.invoke('open-url', url)
+  openUrl: (url) => ipcRenderer.invoke('open-url', url),
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
 });
 
 // Expose dark mode APIs

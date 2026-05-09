@@ -33,6 +33,18 @@ function safeSetItem(key, value) {
   }
 }
 
+function getWslMode() {
+  return localStorage.getItem('ssmWslMode') === 'true';
+}
+
+function setWslMode(enabled) {
+  safeSetItem('ssmWslMode', String(enabled));
+  const settingsToggle = document.getElementById('wslModeToggle');
+  const onboardingToggle = document.getElementById('wslModeOnboardingToggle');
+  if (settingsToggle) settingsToggle.checked = enabled;
+  if (onboardingToggle) onboardingToggle.checked = enabled;
+}
+
 // HTML escape function to prevent XSS attacks
 function escapeHtml(str) {
   if (str == null) return '';
@@ -87,6 +99,7 @@ function generateConnectionId() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeSessionTimeout();
+  await initWslMode();
   await loadProfiles();
   loadGroups();
   loadSavedConnections();
@@ -325,7 +338,7 @@ function updateTabDot(id, state) {
 
 // Profile Management
 async function loadProfiles() {
-  const result = await window.electronAPI.getProfiles();
+  const result = await window.electronAPI.getProfiles({ wslMode: getWslMode() });
   const profileSelect = document.getElementById('profileSelect');
 
   profileSelect.innerHTML = '<option value="">Select profile...</option>';
@@ -784,6 +797,28 @@ function updateSessionTimerDefaultDisplay() {
 
   const minutes = Number.parseInt(timeoutValue, 10);
   timerValue.textContent = `${minutes}:00`;
+}
+
+async function initWslMode() {
+  const platform = await window.electronAPI.getPlatform();
+
+  if (platform === 'win32') {
+    document.getElementById('wslModeContainer')?.classList.remove('hidden');
+    document.getElementById('wslModeOnboardingContainer')?.classList.remove('hidden');
+
+    const enabled = getWslMode();
+    document.getElementById('wslModeToggle').checked = enabled;
+    document.getElementById('wslModeOnboardingToggle').checked = enabled;
+
+    document.getElementById('wslModeToggle').addEventListener('change', (e) => {
+      setWslMode(e.target.checked);
+      loadProfiles();
+    });
+
+    document.getElementById('wslModeOnboardingToggle').addEventListener('change', (e) => {
+      setWslMode(e.target.checked);
+    });
+  }
 }
 
 function initializeSessionTimeout() {
@@ -1856,7 +1891,7 @@ async function startSession() {
   saveBtn.disabled = true;
   connectBtn.textContent = 'Connecting...';
 
-  const result = await window.electronAPI.startSSMSession(config);
+  const result = await window.electronAPI.startSSMSession({ ...config, wslMode: getWslMode() });
 
   connectBtn.disabled = false;
   saveBtn.disabled = false;
@@ -2365,7 +2400,7 @@ function showOnboardingModal() {
     modal.classList.add('hidden');
   });
 
-  document.getElementById('onboardingRecheck').addEventListener('click', () => {
+  document.getElementById('runChecksBtn').addEventListener('click', () => {
     runPrerequisiteChecks();
   });
 
@@ -2391,7 +2426,7 @@ async function runPrerequisiteChecks() {
     el.className = 'onboarding-check';
   });
 
-  const result = await window.electronAPI.checkPrerequisites();
+  const result = await window.electronAPI.checkPrerequisites({ wslMode: getWslMode() });
 
   // AWS CLI
   const awsEl = document.getElementById('checkAwsCli');
