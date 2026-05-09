@@ -1063,8 +1063,17 @@ body {
 .main-area {
   flex: 1;
   margin-left: var(--sidebar-width);
-  min-height: 100vh;
+  height: 100vh;
+  overflow-y: auto;
   background: var(--bg-primary);
+}
+
+.main-area.terminal-visible {
+  padding-bottom: 320px;
+}
+
+.main-area.terminal-minimized {
+  padding-bottom: 64px;
 }
 
 /* Form Container */
