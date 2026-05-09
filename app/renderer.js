@@ -119,14 +119,17 @@ function setupTerminal() {
     const modal = document.getElementById('terminalModal');
     modal.classList.toggle('minimized');
     const toastContainer = document.getElementById('toastContainer');
-    if (toastContainer) {
-      if (modal.classList.contains('minimized')) {
-        toastContainer.classList.remove('terminal-visible');
-        toastContainer.classList.add('terminal-minimized');
-      } else {
-        toastContainer.classList.remove('terminal-minimized');
-        toastContainer.classList.add('terminal-visible');
-      }
+    const mainArea = document.querySelector('.main-area');
+    if (modal.classList.contains('minimized')) {
+      toastContainer?.classList.remove('terminal-visible');
+      toastContainer?.classList.add('terminal-minimized');
+      mainArea?.classList.remove('terminal-visible');
+      mainArea?.classList.add('terminal-minimized');
+    } else {
+      toastContainer?.classList.remove('terminal-minimized');
+      toastContainer?.classList.add('terminal-visible');
+      mainArea?.classList.remove('terminal-minimized');
+      mainArea?.classList.add('terminal-visible');
     }
     // Re-fit active terminal after minimize toggle
     if (activeTabId && !modal.classList.contains('minimized')) {
@@ -198,10 +201,10 @@ function showTerminal(config) {
   // Show modal and offset toasts
   modal.classList.remove('hidden', 'minimized');
   const toastContainer = document.getElementById('toastContainer');
-  if (toastContainer) {
-    toastContainer.classList.remove('terminal-minimized');
-    toastContainer.classList.add('terminal-visible');
-  }
+  toastContainer?.classList.remove('terminal-minimized');
+  toastContainer?.classList.add('terminal-visible');
+  document.querySelector('.main-area')?.classList.remove('terminal-minimized');
+  document.querySelector('.main-area')?.classList.add('terminal-visible');
 
   // Switch active tab
   setActiveTab(config.id);
@@ -278,9 +281,8 @@ function hideTerminal() {
 
   // Reset toast position
   const toastContainer = document.getElementById('toastContainer');
-  if (toastContainer) {
-    toastContainer.classList.remove('terminal-visible', 'terminal-minimized');
-  }
+  toastContainer?.classList.remove('terminal-visible', 'terminal-minimized');
+  document.querySelector('.main-area')?.classList.remove('terminal-visible', 'terminal-minimized');
 }
 
 function updateSessionState(id, status) {
