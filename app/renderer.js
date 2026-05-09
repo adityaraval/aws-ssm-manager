@@ -817,6 +817,7 @@ async function initWslMode() {
 
     document.getElementById('wslModeOnboardingToggle').addEventListener('change', (e) => {
       setWslMode(e.target.checked);
+      loadProfiles();
     });
   }
 }
@@ -1650,6 +1651,10 @@ function handleSaveGroup() {
 
 function resetForm() {
   document.getElementById('ssmForm').reset();
+
+  // Restore WSL toggle — form.reset() clears all checkboxes to their HTML default (unchecked)
+  const wslToggle = document.getElementById('wslModeToggle');
+  if (wslToggle) wslToggle.checked = getWslMode();
 
   // Clear editing state - this is a new connection
   editingConnectionName = null;

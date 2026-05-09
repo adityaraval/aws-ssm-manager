@@ -89,7 +89,7 @@ if (isE2ETest) {
   ipcMain.handle('get-platform', () => 'win32');
 
   ipcMain.handle('get-profiles', async (event, { wslMode } = {}) => {
-    const profiles = wslMode ? ['wsl-default', 'wsl-dev'] : ['default', 'dev', 'staging'];
+    const profiles = wslMode ? ['wsl-default', 'wsl-dev'] : ['dev', 'staging', 'prod'];
     return { success: true, profiles };
   });
 
