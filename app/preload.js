@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTerminalOutput: (callback) => ipcRenderer.on('terminal-output', (event, { id, text }) => callback(id, text)),
   onSessionStatus: (callback) => ipcRenderer.on('session-status', (event, { id, status }) => callback(id, status)),
   checkPrerequisites: ({ wslMode } = {}) => ipcRenderer.invoke('check-prerequisites', { wslMode }),
+  checkWslAvailable: () => ipcRenderer.invoke('check-wsl-available'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
   getPlatform: () => ipcRenderer.invoke('get-platform'),

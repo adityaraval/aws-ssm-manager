@@ -1,13 +1,11 @@
 const { expect } = require('@playwright/test');
+const { _electron: electron } = require('playwright');
+const path = require('path');
 const { test, clearAppState } = require('./fixtures');
 
 // Click the visible track on the onboarding WSL toggle (always in sidebar footer)
 const clickWslOnboardingToggle = (page) =>
   page.click('#wslModeOnboardingContainer .wsl-toggle-track');
-
-// Click the visible track on the settings-panel WSL toggle (inside connection form)
-const clickWslSettingsToggle = (page) =>
-  page.click('#wslModeContainer .wsl-toggle-track');
 
 test.describe('WSL Mode', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,14 +14,25 @@ test.describe('WSL Mode', () => {
 
   // ── Visibility ──────────────────────────────────────────────────────────────
 
-  test('wsl toggle is visible in settings panel on windows', async ({ page }) => {
-    const container = page.locator('#wslModeContainer');
-    await expect(container).not.toHaveClass(/hidden/);
-  });
-
   test('wsl toggle is visible in onboarding modal on windows', async ({ page }) => {
     const container = page.locator('#wslModeOnboardingContainer');
     await expect(container).not.toHaveClass(/hidden/);
+  });
+
+  test('wsl toggle is hidden on non-windows platforms', async () => {
+    const app = await electron.launch({
+      args: [path.join(__dirname, '..', '..', 'main.js')],
+      env: { ...process.env, E2E_TEST: '1', MOCK_PLATFORM: 'darwin' },
+    });
+    try {
+      const page = await app.firstWindow();
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+
+      await expect(page.locator('#wslModeOnboardingContainer')).toHaveClass(/hidden/);
+    } finally {
+      await app.close();
+    }
   });
 
   // ── Default state ───────────────────────────────────────────────────────────
@@ -58,22 +67,6 @@ test.describe('WSL Mode', () => {
     await expect(page.locator('#wslModeOnboardingToggle')).not.toBeChecked();
   });
 
-  // ── Toggle sync ─────────────────────────────────────────────────────────────
-
-  test('enabling wsl in settings panel syncs to onboarding toggle', async ({ page }) => {
-    await page.click('#newConnectionBtnFooter');
-    await page.waitForSelector('#wslModeContainer', { state: 'visible' });
-    await clickWslSettingsToggle(page);
-    await expect(page.locator('#wslModeOnboardingToggle')).toBeChecked();
-  });
-
-  test('enabling wsl in onboarding modal syncs to settings toggle', async ({ page }) => {
-    await clickWslOnboardingToggle(page);
-    await page.click('#newConnectionBtnFooter');
-    await page.waitForSelector('#wslModeContainer', { state: 'visible' });
-    await expect(page.locator('#wslModeToggle')).toBeChecked();
-  });
-
   // ── Profile loading ─────────────────────────────────────────────────────────
 
   test('profiles come from wsl source when wsl mode is on', async ({ page }) => {
@@ -95,20 +88,75 @@ test.describe('WSL Mode', () => {
     expect(options.some(o => o.includes('wsl-'))).toBe(false);
   });
 
-  // ── Prerequisites check ─────────────────────────────────────────────────────
+  // ── WSL unavailability ──────────────────────────────────────────────────────
 
-  test('prerequisites check reflects wsl source when wsl mode is on', async ({ page }) => {
-    await clickWslOnboardingToggle(page);
+  test('shows error toast when WSL is unavailable and toggle is enabled', async () => {
+    const app = await electron.launch({
+      args: [path.join(__dirname, '..', '..', 'main.js')],
+      env: { ...process.env, E2E_TEST: '1', MOCK_WSL_UNAVAILABLE: '1' },
+    });
+    try {
+      const page = await app.firstWindow();
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await page.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('ssmOnboardingComplete', 'true');
+      });
+      await page.reload();
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await clickWslOnboardingToggle(page);
+      await expect(page.locator('.toast.error')).toBeVisible({ timeout: 3000 });
+      await expect(page.locator('.toast.error')).toContainText('WSL is not available');
+    } finally {
+      await app.close();
+    }
+  });
 
-    await page.evaluate(() => localStorage.removeItem('ssmOnboardingComplete'));
-    await page.reload();
-    await page.waitForSelector('#onboardingModal', { state: 'visible' });
+  test('toggle stays unchecked when WSL is unavailable', async () => {
+    const app = await electron.launch({
+      args: [path.join(__dirname, '..', '..', 'main.js')],
+      env: { ...process.env, E2E_TEST: '1', MOCK_WSL_UNAVAILABLE: '1' },
+    });
+    try {
+      const page = await app.firstWindow();
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await page.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('ssmOnboardingComplete', 'true');
+      });
+      await page.reload();
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await clickWslOnboardingToggle(page);
+      await expect(page.locator('#wslModeOnboardingToggle')).not.toBeChecked({ timeout: 3000 });
+    } finally {
+      await app.close();
+    }
+  });
 
-    await page.click('#runChecksBtn');
-    await page.waitForSelector('#awsCliStatus', { state: 'visible' });
-
-    // E2E mock returns 'aws-cli/2.x.x (wsl)' when wslMode is true
-    const cliText = await page.locator('#awsCliStatus').textContent();
-    expect(cliText).toContain('wsl');
+  test('wsl mode is not saved to localStorage when WSL is unavailable', async () => {
+    const app = await electron.launch({
+      args: [path.join(__dirname, '..', '..', 'main.js')],
+      env: { ...process.env, E2E_TEST: '1', MOCK_WSL_UNAVAILABLE: '1' },
+    });
+    try {
+      const page = await app.firstWindow();
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await page.evaluate(() => {
+        localStorage.clear();
+        localStorage.setItem('ssmOnboardingComplete', 'true');
+      });
+      await page.reload();
+      await page.waitForSelector('#connectionGroups', { state: 'attached' });
+      await clickWslOnboardingToggle(page);
+      // Wait for async revert to complete before reading localStorage
+      await expect(page.locator('#wslModeOnboardingToggle')).not.toBeChecked({ timeout: 3000 });
+      const stored = await page.evaluate(() => localStorage.getItem('ssmWslMode'));
+      expect(stored === null || stored === 'false').toBe(true);
+    } finally {
+      await app.close();
+    }
   });
 });

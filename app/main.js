@@ -86,7 +86,7 @@ if (isE2ETest) {
   // --- Mock IPC handlers for E2E testing ---
   const mockSessions = new Map(); // key: config.id, value: { sessionId }
 
-  ipcMain.handle('get-platform', () => 'win32');
+  ipcMain.handle('get-platform', () => process.env.MOCK_PLATFORM || 'win32');
 
   ipcMain.handle('get-profiles', async (event, { wslMode } = {}) => {
     const profiles = wslMode ? ['wsl-default', 'wsl-dev'] : ['dev', 'staging', 'prod'];
@@ -199,6 +199,10 @@ if (isE2ETest) {
 
   ipcMain.handle('open-external', async () => {
     return { success: true };
+  });
+
+  ipcMain.handle('check-wsl-available', async () => {
+    return { available: process.env.MOCK_WSL_UNAVAILABLE !== '1' };
   });
 
   // Dark mode handlers still work normally in test mode
@@ -743,6 +747,18 @@ ipcMain.handle('check-prerequisites', async (event, { wslMode } = {}) => {
   }
 
   return result;
+});
+
+ipcMain.handle('check-wsl-available', async () => {
+  if (process.platform !== 'win32') {
+    return { available: false };
+  }
+  try {
+    await execFileAsync('wsl.exe', ['--', 'sh', '-c', 'exit 0'], { timeout: 10000 });
+    return { available: true };
+  } catch {
+    return { available: false };
+  }
 });
 
 // Open connection URL in default browser (restricted to localhost)

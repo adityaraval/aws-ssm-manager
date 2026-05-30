@@ -2253,44 +2253,6 @@ body {
   color: white;
 }
 
-/* WSL Mode Toggle */
-.wsl-mode-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.wsl-mode-row.hidden {
-  display: none !important;
-}
-
-.wsl-mode-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.wsl-mode-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.wsl-mode-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.wsl-toggle-label {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.wsl-mode-row .wsl-toggle-label {
-  display: inline-flex;
-}
 
 .wsl-toggle {
   position: absolute;

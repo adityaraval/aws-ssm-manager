@@ -39,9 +39,7 @@ function getWslMode() {
 
 function setWslMode(enabled) {
   safeSetItem('ssmWslMode', String(enabled));
-  const settingsToggle = document.getElementById('wslModeToggle');
   const onboardingToggle = document.getElementById('wslModeOnboardingToggle');
-  if (settingsToggle) settingsToggle.checked = enabled;
   if (onboardingToggle) onboardingToggle.checked = enabled;
 }
 
@@ -803,21 +801,26 @@ async function initWslMode() {
   const platform = await window.electronAPI.getPlatform();
 
   if (platform === 'win32') {
-    document.getElementById('wslModeContainer')?.classList.remove('hidden');
     document.getElementById('wslModeOnboardingContainer')?.classList.remove('hidden');
 
     const enabled = getWslMode();
-    document.getElementById('wslModeToggle').checked = enabled;
     document.getElementById('wslModeOnboardingToggle').checked = enabled;
 
-    document.getElementById('wslModeToggle').addEventListener('change', (e) => {
-      setWslMode(e.target.checked);
+    async function handleWslToggleChange(checked) {
+      if (checked) {
+        const result = await window.electronAPI.checkWslAvailable();
+        if (!result.available) {
+          showToast('WSL is not available. Please install Windows Subsystem for Linux to use this feature.', 'error');
+          setWslMode(false);
+          return;
+        }
+      }
+      setWslMode(checked);
       loadProfiles();
-    });
+    }
 
     document.getElementById('wslModeOnboardingToggle').addEventListener('change', (e) => {
-      setWslMode(e.target.checked);
-      loadProfiles();
+      handleWslToggleChange(e.target.checked);
     });
   }
 }
@@ -1651,10 +1654,6 @@ function handleSaveGroup() {
 
 function resetForm() {
   document.getElementById('ssmForm').reset();
-
-  // Restore WSL toggle — form.reset() clears all checkboxes to their HTML default (unchecked)
-  const wslToggle = document.getElementById('wslModeToggle');
-  if (wslToggle) wslToggle.checked = getWslMode();
 
   // Clear editing state - this is a new connection
   editingConnectionName = null;
