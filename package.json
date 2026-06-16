@@ -1,6 +1,6 @@
 {
   "name": "aws-ssm-manager",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "AWS SSM Manager - Secure Port Forwarding Made Simple",
   "private": true,
   "scripts": {

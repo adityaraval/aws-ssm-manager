@@ -149,10 +149,22 @@ class SSMSession {
         throw new Error('AWS CLI not found in PATH. Install AWS CLI v2 and reopen the app.');
       }
 
-      this.process = spawn(awsExecutable, args, {
-        detached: process.platform !== 'win32', // Create new process group (Unix only)
-        env: safeEnv
-      });
+      if (this.config.wslMode && process.platform === 'win32') {
+        this.process = spawn('wsl.exe', ['--', 'aws', ...args], {
+          detached: false,
+          env: {
+            PATH: process.env.PATH,
+            SystemRoot: process.env.SystemRoot || 'C:\\Windows',
+            TEMP: process.env.TEMP,
+            TMP: process.env.TMP
+          }
+        });
+      } else {
+        this.process = spawn(awsExecutable, args, {
+          detached: process.platform !== 'win32',
+          env: safeEnv
+        });
+      }
 
       // Handle stdout
       this.process.stdout.on('data', (data) => {

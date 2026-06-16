@@ -24,7 +24,7 @@
         </div>
         <div class="brand-info">
           <div class="brand-name">SSM Manager</div>
-          <div class="brand-version">v2.1.0</div>
+          <div class="brand-version">v2.2.0</div>
         </div>
         <div class="mode-toggle">
           <button id="themeLightBtn" class="mode-btn" data-theme="light" title="Light Mode">
@@ -140,6 +140,14 @@
       </div>
 
       <div class="sidebar-footer">
+        <!-- WSL Mode toggle for onboarding/setup context (Windows only) -->
+        <div id="wslModeOnboardingContainer" class="hidden wsl-onboarding-row">
+          <label class="wsl-onboarding-label">
+            <input type="checkbox" id="wslModeOnboardingToggle" class="wsl-toggle">
+            <span class="wsl-toggle-track"></span>
+            <span class="wsl-onboarding-text">Use WSL for AWS commands</span>
+          </label>
+        </div>
         <div class="footer-actions">
           <div class="footer-actions-row">
             <button id="newConnectionBtnFooter" class="footer-action-btn footer-action-primary"
@@ -520,7 +528,7 @@
             </div>
             <div class="onboarding-check-info">
               <div class="onboarding-check-title">AWS CLI v2</div>
-              <div class="onboarding-check-detail">Checking...</div>
+              <div id="awsCliStatus" class="onboarding-check-detail">Checking...</div>
             </div>
           </div>
           <div class="onboarding-check" id="checkSsmPlugin">
@@ -544,7 +552,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button id="onboardingRecheck" class="btn-secondary">Re-check</button>
+        <button id="runChecksBtn" class="btn-secondary">Re-check</button>
         <button id="onboardingDismiss" class="btn-primary">Get Started</button>
       </div>
     </div>

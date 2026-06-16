@@ -2252,3 +2252,62 @@ body {
 .brand-icon-svg svg {
   color: white;
 }
+
+
+.wsl-toggle {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.wsl-toggle-track {
+  display: block;
+  width: 34px;
+  height: 18px;
+  background: var(--border-color);
+  border-radius: 9px;
+  transition: background 0.2s;
+}
+
+.wsl-toggle:checked + .wsl-toggle-track {
+  background: var(--accent-color, #3b82f6);
+}
+
+.wsl-toggle-track::after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  margin: 2px;
+  transition: transform 0.2s;
+}
+
+.wsl-toggle:checked + .wsl-toggle-track::after {
+  transform: translateX(16px);
+}
+
+/* WSL Mode Onboarding row in sidebar footer */
+.wsl-onboarding-row {
+  padding: 0 6px 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wsl-onboarding-row.hidden {
+  display: none !important;
+}
+
+.wsl-onboarding-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.wsl-onboarding-text {
+  color: var(--text-secondary);
+}

@@ -1,11 +1,25 @@
 const { app, BrowserWindow, ipcMain, nativeTheme, dialog, shell } = require('electron');
+const { promisify } = require('util');
 const { execFile } = require('child_process');
+const execFileAsync = promisify(execFile);
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { SSMSession } = require('./ssm-session');
 const { checkLocalPortAvailability, normalizePortError } = require('./port-utils');
 const { buildCommandPath, resolveExecutable } = require('./executable-utils');
+
+function parseProfiles(text) {
+  const profiles = new Set();
+  const regex = /\[(?:profile )?([^\]]+)\]/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const name = match[1].trim();
+    if (name !== 'default') profiles.add(name);
+  }
+  if (/\[default\]/.test(text)) profiles.add('default');
+  return Array.from(profiles);
+}
 
 let mainWindow;
 const sessions = new Map(); // key: connection.id, value: SSMSession instance
@@ -72,8 +86,11 @@ if (isE2ETest) {
   // --- Mock IPC handlers for E2E testing ---
   const mockSessions = new Map(); // key: config.id, value: { sessionId }
 
-  ipcMain.handle('get-profiles', async () => {
-    return { success: true, profiles: ['dev', 'staging', 'prod'] };
+  ipcMain.handle('get-platform', () => process.env.MOCK_PLATFORM || 'win32');
+
+  ipcMain.handle('get-profiles', async (event, { wslMode } = {}) => {
+    const profiles = wslMode ? ['wsl-default', 'wsl-dev'] : ['dev', 'staging', 'prod'];
+    return { success: true, profiles };
   });
 
   ipcMain.handle('start-ssm-session', async (event, config) => {
@@ -129,11 +146,11 @@ if (isE2ETest) {
     return { sessions: list };
   });
 
-  ipcMain.handle('check-prerequisites', async () => {
+  ipcMain.handle('check-prerequisites', async (event, { wslMode } = {}) => {
     return {
-      awsCli: { installed: true, version: 'aws-cli/2.0.0 Python/3.9.0 Darwin/21.0.0 source/x86_64' },
+      awsCli: { installed: true, version: wslMode ? 'aws-cli/2.x.x (wsl)' : 'aws-cli/2.0.0 Python/3.9.0 Darwin/21.0.0 source/x86_64' },
       ssmPlugin: { installed: true },
-      credentials: { configured: true, profileCount: 3 }
+      credentials: { configured: true, profileCount: wslMode ? 2 : 3 }
     };
   });
 
@@ -184,6 +201,10 @@ if (isE2ETest) {
     return { success: true };
   });
 
+  ipcMain.handle('check-wsl-available', async () => {
+    return { available: process.env.MOCK_WSL_UNAVAILABLE !== '1' };
+  });
+
   // Dark mode handlers still work normally in test mode
   ipcMain.handle('dark-mode:toggle', () => {
     if (nativeTheme.shouldUseDarkColors) {
@@ -206,33 +227,27 @@ if (isE2ETest) {
 } else {
   // --- Real IPC handlers (production) ---
 
-ipcMain.handle('get-profiles', async () => {
-  const configPath = path.join(os.homedir(), '.aws', 'config');
-  const credentialsPath = path.join(os.homedir(), '.aws', 'credentials');
+ipcMain.handle('get-platform', () => process.platform);
 
-  const profiles = new Set();
-
-  try {
-    if (fs.existsSync(configPath)) {
-      const configContent = fs.readFileSync(configPath, 'utf-8');
-      const matches = configContent.matchAll(/\[(?:profile )?([^\]]+)\]/g);
-      for (const match of matches) {
-        profiles.add(match[1]);
-      }
+ipcMain.handle('get-profiles', async (event, { wslMode } = {}) => {
+  if (wslMode && process.platform === 'win32') {
+    try {
+      const { stdout } = await execFileAsync('wsl.exe', [
+        '--', 'sh', '-c',
+        'cat ~/.aws/config 2>/dev/null; echo ""; cat ~/.aws/credentials 2>/dev/null'
+      ]);
+      return { success: true, profiles: parseProfiles(stdout) };
+    } catch {
+      return { success: true, profiles: [] };
     }
-
-    if (fs.existsSync(credentialsPath)) {
-      const credContent = fs.readFileSync(credentialsPath, 'utf-8');
-      const matches = credContent.matchAll(/\[([^\]]+)\]/g);
-      for (const match of matches) {
-        profiles.add(match[1]);
-      }
-    }
-  } catch (error) {
-    return { success: false, error: error.message };
   }
 
-  return { success: true, profiles: Array.from(profiles) };
+  const configPath = path.join(os.homedir(), '.aws', 'config');
+  const credentialsPath = path.join(os.homedir(), '.aws', 'credentials');
+  let combined = '';
+  try { combined += fs.readFileSync(configPath, 'utf-8'); } catch { /* file may not exist */ }
+  try { combined += '\n' + fs.readFileSync(credentialsPath, 'utf-8'); } catch { /* file may not exist */ }
+  return { success: true, profiles: parseProfiles(combined) };
 });
 
 // Note: AWS profile configuration is done via ~/.aws/config and ~/.aws/credentials
@@ -246,7 +261,7 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     return { success: false, error: 'Session already active for this connection' };
   }
 
-  const { target, portNumber, localPortNumber, host, region, profile, sessionTimeoutMinutes } = config;
+  const { target, portNumber, localPortNumber, host, region, profile, sessionTimeoutMinutes, wslMode } = config;
   const parsedTimeoutMinutes = Number.parseInt(sessionTimeoutMinutes, 10);
   const sessionTimeout = sessionTimeoutMinutes == null
     ? null
@@ -282,7 +297,8 @@ ipcMain.handle('start-ssm-session', async (event, config) => {
     host,
     region,
     profile,
-    sessionTimeout
+    sessionTimeout,
+    wslMode
   }, onOutput, onStatus);
   sessions.set(config.id, session);
 
@@ -621,12 +637,41 @@ ipcMain.handle('import-connections', async () => {
 });
 
 // Check prerequisites for onboarding
-ipcMain.handle('check-prerequisites', async () => {
+ipcMain.handle('check-prerequisites', async (event, { wslMode } = {}) => {
   const result = {
     awsCli: { installed: false, version: '' },
     ssmPlugin: { installed: false },
     credentials: { configured: false, profileCount: 0 }
   };
+
+  if (wslMode && process.platform === 'win32') {
+    try {
+      const { stdout } = await execFileAsync('wsl.exe', ['--', 'aws', '--version']);
+      result.awsCli.installed = true;
+      result.awsCli.version = stdout.trim();
+    } catch { result.awsCli.installed = false; }
+
+    try {
+      await execFileAsync('wsl.exe', ['--', 'session-manager-plugin', '--version']);
+      result.ssmPlugin.installed = true;
+    } catch { result.ssmPlugin.installed = false; }
+
+    try {
+      const { stdout } = await execFileAsync('wsl.exe', [
+        '--', 'sh', '-c',
+        'cat ~/.aws/config 2>/dev/null; cat ~/.aws/credentials 2>/dev/null'
+      ]);
+      const profiles = parseProfiles(stdout);
+      result.credentials.configured = profiles.length > 0;
+      result.credentials.profileCount = profiles.length;
+    } catch {
+      result.credentials.configured = false;
+      result.credentials.profileCount = 0;
+    }
+
+    return result;
+  }
+
   const commandPath = buildCommandPath(process.env.PATH);
   const commandEnv = { ...process.env, PATH: commandPath };
 
@@ -702,6 +747,18 @@ ipcMain.handle('check-prerequisites', async () => {
   }
 
   return result;
+});
+
+ipcMain.handle('check-wsl-available', async () => {
+  if (process.platform !== 'win32') {
+    return { available: false };
+  }
+  try {
+    await execFileAsync('wsl.exe', ['--', 'sh', '-c', 'exit 0'], { timeout: 10000 });
+    return { available: true };
+  } catch {
+    return { available: false };
+  }
 });
 
 // Open connection URL in default browser (restricted to localhost)
